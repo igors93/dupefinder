@@ -1,9 +1,11 @@
 # dupefinder
 
-[![PyPI version](https://img.shields.io/pypi/v/dupefinder.svg)](https://pypi.org/project/dupefinder/)
-[![Python versions](https://img.shields.io/pypi/pyversions/dupefinder.svg)](https://pypi.org/project/dupefinder/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://github.com/igors93/dupefinder/actions/workflows/ci.yml/badge.svg)](https://github.com/igors93/dupefinder/actions)
+<p align="center">
+  <a href="https://pypi.org/project/dupefinder/"><img src="https://img.shields.io/pypi/v/dupefinder.svg" alt="PyPI version"></a>
+  <a href="https://pypi.org/project/dupefinder/"><img src="https://img.shields.io/pypi/pyversions/dupefinder.svg" alt="Python versions"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="https://github.com/igors93/dupefinder/actions/workflows/ci.yml"><img src="https://github.com/igors93/dupefinder/actions/workflows/ci.yml/badge.svg" alt="Tests"></a>
+</p>
 
 **dupefinder** is a small, zero-dependency Python library and CLI tool for finding duplicate files using content hashes.
 
