@@ -1,0 +1,51 @@
+"""Duplicate grouping logic."""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from pathlib import Path
+from typing import Dict, Iterable, List, Tuple
+
+from dupefinder.hashing import hash_files
+from dupefinder.models import DuplicateGroup, FileInfo, ScanIssue, ScanOptions
+
+
+def group_by_size(files: Iterable[FileInfo]) -> Dict[int, List[FileInfo]]:
+    """Group files by size.
+
+    Files with different sizes cannot be byte-for-byte duplicates, so this is a
+    cheap first pass before calculating hashes.
+    """
+
+    grouped: Dict[int, List[FileInfo]] = defaultdict(list)
+    for file_info in files:
+        grouped[file_info.size].append(file_info)
+    return dict(grouped)
+
+
+def build_duplicate_groups(
+    files: Iterable[FileInfo],
+    options: ScanOptions,
+    issues: List[ScanIssue] | None = None,
+) -> Tuple[Tuple[DuplicateGroup, ...], int]:
+    """Return duplicate groups and the number of files that were hashed."""
+
+    by_size = group_by_size(files)
+    candidates = [file_info for same_size in by_size.values() if len(same_size) > 1 for file_info in same_size]
+
+    hashed_count = 0
+    by_hash: Dict[tuple[int, str], List[Path]] = defaultdict(list)
+
+    for file_info in hash_files(candidates, options, issues):
+        if file_info.digest is None:
+            continue
+        hashed_count += 1
+        by_hash[(file_info.size, file_info.digest)].append(file_info.path)
+
+    groups = []
+    for (size, digest), paths in by_hash.items():
+        if len(paths) > 1:
+            groups.append(DuplicateGroup(digest=digest, size=size, files=tuple(sorted(paths))))
+
+    groups.sort(key=lambda group: (group.size, group.digest, tuple(str(path) for path in group.files)))
+    return tuple(groups), hashed_count
