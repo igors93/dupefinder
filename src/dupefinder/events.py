@@ -22,3 +22,24 @@ class ScanEvent:
     message: str | None = None
     issue: ScanIssue | None = None
     group: DuplicateGroup | None = None
+    from_cache: bool = False
+    bytes_read: int = 0
+
+
+@dataclass(frozen=True)
+class ScanProgress:
+    """A simplified progress snapshot emitted during a scan.
+
+    Delivered to the ``on_progress`` callback of ``DupeFinder``.
+    Unlike ``ScanEvent``, this model always has a complete and meaningful
+    set of counters regardless of the current phase.
+    """
+
+    root: Path
+    phase: str  # "discovery", "hashing", "grouping", "done"
+    scanned_files: int = 0
+    hashed_files: int = 0
+    total_candidates: int = 0
+    duplicate_groups: int = 0
+    elapsed_seconds: float | None = None
+    cancelled: bool = False

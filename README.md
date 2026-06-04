@@ -89,6 +89,8 @@ from dupefinder import DupeFinder, ScanOptions
 def on_event(event):
     if event.type == "file_discovered":
         print(f"\rFound {event.scanned_files} files...", end="", flush=True)
+    elif event.type == "issue":
+        print(f"\nWarning: {event.message}")
     elif event.type == "scan_completed":
         print(f"\nDone in {event.elapsed_seconds:.2f}s")
 
@@ -97,6 +99,23 @@ finder = DupeFinder(
     on_event=on_event,
 )
 report = finder.scan("./Downloads")
+```
+
+### Progress callback
+
+```python
+from dupefinder import DupeFinder, ScanOptions
+
+def on_progress(progress):
+    print(f"[{progress.phase}] {progress.scanned_files} files scanned, "
+          f"{progress.hashed_files}/{progress.total_candidates} hashed")
+
+finder = DupeFinder(
+    options=ScanOptions(min_size=1024),
+    on_progress=on_progress,
+)
+report = finder.scan("./Downloads")
+print(f"Total bytes read: {report.total_bytes_read:,}")
 ```
 
 ### Cancellation
@@ -198,10 +217,11 @@ Run `dupefinder --help` to see all options.
 |---|---|
 | `find_duplicates(path, options)` | Return a tuple of `DuplicateGroup` |
 | `scan(path, options)` | Return a full `ScanReport` |
-| `DupeFinder` | Engine with events, cache, and cancellation |
+| `DupeFinder` | Engine with events, progress, cache, and cancellation |
 | `ScanEvent` | Typed event emitted during scanning |
+| `ScanProgress` | Simplified progress snapshot for the `on_progress` callback |
 | `ScanOptions` | Frozen dataclass with all scan settings |
-| `ScanReport` | Result of a scan — groups, counts, issues |
+| `ScanReport` | Result of a scan — groups, counts, issues, bytes read |
 | `DuplicateGroup` | One group of files with identical content |
 | `FileInfo` | Path and size of a single file |
 | `ScanIssue` | A non-fatal error recorded during a scan |
@@ -209,7 +229,7 @@ Run `dupefinder --help` to see all options.
 
 ### JSON schema
 
-All JSON output includes a `schema_version` field (currently `"1.0"`) for forward compatibility.
+All JSON output includes a `schema_version` field (currently `"1.1"`) for forward compatibility.
 
 See [docs/api.md](docs/api.md) for the full reference.
 

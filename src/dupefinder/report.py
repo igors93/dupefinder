@@ -53,6 +53,7 @@ def report_to_dict(report: ScanReport) -> dict[str, Any]:
         "total_wasted_space": report.total_wasted_space,
         "cancelled": report.cancelled,
         "elapsed_seconds": report.elapsed_seconds,
+        "total_bytes_read": report.total_bytes_read,
         "groups": [group_to_dict(group) for group in report.groups],
         "issues": [issue_to_dict(issue) for issue in report.issues],
     }

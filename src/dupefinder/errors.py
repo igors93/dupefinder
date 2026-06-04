@@ -23,3 +23,7 @@ class FileAccessError(DupeFinderError):
 
 class FileHashError(DupeFinderError):
     """Raised when a file cannot be hashed in strict mode."""
+
+
+class _ScanCancelled(Exception):
+    """Internal signal raised when hashing is cancelled mid-file. Not part of the public API."""

@@ -23,6 +23,23 @@ def group_by_size(files: Iterable[FileInfo]) -> dict[int, list[FileInfo]]:
     return dict(grouped)
 
 
+def candidate_files(by_size: dict[int, list[FileInfo]]) -> list[FileInfo]:
+    """Return files that share a size with at least one other file."""
+    return [f for same_size in by_size.values() if len(same_size) > 1 for f in same_size]
+
+
+def groups_from_hash_map(
+    by_hash: dict[tuple[int, str], list[Path]],
+) -> list[DuplicateGroup]:
+    """Build and sort duplicate groups from a (size, digest) -> paths mapping."""
+    groups = []
+    for (size, digest), paths in by_hash.items():
+        if len(paths) > 1:
+            groups.append(DuplicateGroup(digest=digest, size=size, files=tuple(sorted(paths))))
+    groups.sort(key=lambda g: (g.size, g.digest, tuple(str(p) for p in g.files)))
+    return groups
+
+
 def build_duplicate_groups(
     files: Iterable[FileInfo],
     options: ScanOptions,
@@ -33,7 +50,7 @@ def build_duplicate_groups(
     """Return duplicate groups and the number of files that were hashed."""
 
     by_size = group_by_size(files)
-    candidates = [file_info for same_size in by_size.values() if len(same_size) > 1 for file_info in same_size]
+    candidates = candidate_files(by_size)
 
     hashed_count = 0
     by_hash: dict[tuple[int, str], list[Path]] = defaultdict(list)
@@ -44,10 +61,4 @@ def build_duplicate_groups(
         hashed_count += 1
         by_hash[(file_info.size, file_info.digest)].append(file_info.path)
 
-    groups = []
-    for (size, digest), paths in by_hash.items():
-        if len(paths) > 1:
-            groups.append(DuplicateGroup(digest=digest, size=size, files=tuple(sorted(paths))))
-
-    groups.sort(key=lambda group: (group.size, group.digest, tuple(str(path) for path in group.files)))
-    return tuple(groups), hashed_count
+    return tuple(groups_from_hash_map(by_hash)), hashed_count

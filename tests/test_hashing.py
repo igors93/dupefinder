@@ -92,5 +92,70 @@ class HashingTests(unittest.TestCase):
                 list(hash_files(files, options))
 
 
+class HashFileCancellationTests(unittest.TestCase):
+    def test_should_cancel_raises_scan_cancelled(self):
+        """hash_file with should_cancel=True raises _ScanCancelled."""
+        from dupefinder.errors import _ScanCancelled
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "a.txt"
+            file_path.write_bytes(b"x" * 100)
+
+            with self.assertRaises(_ScanCancelled):
+                hash_file(file_path, chunk_size=1, should_cancel=lambda: True)
+
+    def test_should_cancel_not_called_for_empty_file(self):
+        """Empty file produces no chunks, so should_cancel is never called."""
+        from dupefinder.errors import _ScanCancelled
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "empty.txt"
+            file_path.write_bytes(b"")
+
+            # Should not raise — no chunks to read
+            result = hash_file(file_path, should_cancel=lambda: True)
+            self.assertIsInstance(result, str)
+
+    def test_on_bytes_read_callback_receives_correct_count(self):
+        """on_bytes_read should be called with the number of bytes per chunk."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "a.txt"
+            file_path.write_bytes(b"x" * 100)
+
+            bytes_seen = []
+            hash_file(file_path, chunk_size=10, on_bytes_read=bytes_seen.append)
+
+            self.assertEqual(sum(bytes_seen), 100)
+            # Each chunk should be 10 bytes
+            self.assertEqual(bytes_seen, [10] * 10)
+
+    def test_on_bytes_read_total_equals_file_size(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            file_path = Path(temp_dir) / "data.bin"
+            file_path.write_bytes(b"abc" * 50)
+
+            total = [0]
+            hash_file(file_path, on_bytes_read=lambda n: total.__setitem__(0, total[0] + n))
+
+            self.assertEqual(total[0], 150)
+
+    def test_hash_files_passes_on_bytes_read_to_file(self):
+        """hash_files should accumulate bytes read across all files."""
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            (root / "a.txt").write_bytes(b"x" * 50)
+            (root / "b.txt").write_bytes(b"x" * 50)
+
+            options = ScanOptions(on_error="skip")
+            files = [
+                FileInfo(path=root / "a.txt", size=50),
+                FileInfo(path=root / "b.txt", size=50),
+            ]
+            total = [0]
+            list(hash_files(files, options, on_bytes_read=lambda n: total.__setitem__(0, total[0] + n)))
+
+            self.assertEqual(total[0], 100)
+
+
 if __name__ == "__main__":
     unittest.main()

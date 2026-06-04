@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-06-04
+
+### Added
+
+- `ScanProgress` frozen dataclass — simplified progress snapshots delivered to the new `on_progress` callback of `DupeFinder`. Fields: `root`, `phase` (`"discovery"`, `"hashing"`, `"grouping"`, `"done"`), `scanned_files`, `hashed_files`, `total_candidates`, `duplicate_groups`, `elapsed_seconds`, `cancelled`.
+- `DupeFinder.on_progress` parameter — optional callback that receives a `ScanProgress` snapshot after each file discovered or hashed, and once more at the end with `phase="done"`.
+- `ScanReport.total_bytes_read` is now always populated (previously always `None`). Zero when no files were hashed; positive when hashing occurred.
+- `ScanEvent.from_cache` and `ScanEvent.bytes_read` fields — reserved for future per-file cache-hit tracking.
+- `grouping.candidate_files()` — public helper that filters files sharing a size with at least one other file.
+- `grouping.groups_from_hash_map()` — public helper that builds and sorts `DuplicateGroup` objects from a `(size, digest) → paths` mapping.
+- `_ScanCancelled` internal exception in `errors.py` — raised by `hash_file()` between chunks when `should_cancel` returns `True`; caught at the engine boundary so partial digests are never stored.
+- `hash_file()` now accepts `should_cancel` and `on_bytes_read` keyword-only callbacks for mid-file cancellation and byte-count tracking.
+- `hash_files()` now accepts `should_cancel` and `on_bytes_read` and forwards them to `hash_file()`; `_ScanCancelled` propagates cleanly to the engine.
+- `total_bytes_read` field in `report_to_dict()` / JSON output (schema version bumped to `"1.1"`).
+
+### Fixed
+
+- Engine now emits `type="issue"` events for all issues collected during discovery and hashing (previously issues were silently dropped from the event stream).
+- Cache error handling now catches `sqlite3.Error` in addition to `OSError`; previously a corrupt or locked SQLite database would propagate unhandled.
+- CLI cache creation moved inside the `try` block so `OSError` or `sqlite3.Error` on cache open is caught and reported cleanly with exit code 1.
+- Engine no longer duplicates the size-grouping and hash-grouping logic from `grouping.py`; it now delegates to `group_by_size()`, `candidate_files()`, and `groups_from_hash_map()`.
+
+### Changed
+
+- `SCHEMA_VERSION` bumped from `"1.0"` to `"1.1"` (adds `total_bytes_read` to JSON output).
+- `dupefinder.__version__` updated to `"0.3.0"`.
+- Development status classifier updated from `3 - Alpha` to `4 - Beta`.
+
 ## [Unreleased]
 
 ### Added
@@ -45,5 +73,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Unit tests for all modules using only the Python standard library.
 - Zero runtime dependencies — standard library only.
 
-[Unreleased]: https://github.com/igors93/dupefinder/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/igors93/dupefinder/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/igors93/dupefinder/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/igors93/dupefinder/releases/tag/v0.1.0

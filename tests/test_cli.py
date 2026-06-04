@@ -64,7 +64,7 @@ class CLIJsonTests(unittest.TestCase):
 
             parsed = json.loads(captured.getvalue())
             self.assertIn("schema_version", parsed)
-            self.assertEqual(parsed["schema_version"], "1.0")
+            self.assertEqual(parsed["schema_version"], "1.1")
 
 
 class CLIFailOnDuplicatesTests(unittest.TestCase):
@@ -152,6 +152,96 @@ class CLINewFlagsTests(unittest.TestCase):
             exit_code = main([tmp, "--no-ignore-hidden", "--cache", db_path])
             self.assertEqual(exit_code, 0)
             self.assertTrue(Path(db_path).exists())
+
+
+class CLICacheErrorTests(unittest.TestCase):
+    def test_invalid_cache_path_exits_one(self):
+        """A cache path that cannot be created should result in exit code 1."""
+        with tempfile.TemporaryDirectory() as tmp:
+            # Use a path inside a non-existent directory to trigger failure
+            invalid_cache = "/nonexistent_dir_dupefinder_test/cache.db"
+            exit_code = main([tmp, "--cache", invalid_cache])
+            self.assertEqual(exit_code, 1)
+
+    def test_valid_cache_path_exits_zero(self):
+        """A valid cache path should work normally."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("content", encoding="utf-8")
+            db_path = str(Path(tmp) / "cache.sqlite")
+            exit_code = main([tmp, "--no-ignore-hidden", "--cache", db_path])
+            self.assertEqual(exit_code, 0)
+
+
+class CLIJsonAndProgressTests(unittest.TestCase):
+    def test_json_output_with_total_bytes_read(self):
+        """JSON output should include total_bytes_read field."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("same", encoding="utf-8")
+            (root / "b.txt").write_text("same", encoding="utf-8")
+
+            import io
+            import sys
+            captured = io.StringIO()
+            old_stdout = sys.stdout
+            sys.stdout = captured
+            try:
+                exit_code = main([tmp, "--json", "--no-ignore-hidden"])
+            finally:
+                sys.stdout = old_stdout
+
+            self.assertEqual(exit_code, 0)
+            parsed = json.loads(captured.getvalue())
+            self.assertIn("total_bytes_read", parsed)
+
+    def test_progress_flag_writes_to_stderr(self):
+        """--progress should write to stderr, not stdout."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("content", encoding="utf-8")
+
+            import io
+            import sys
+            captured_out = io.StringIO()
+            captured_err = io.StringIO()
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = captured_out
+            sys.stderr = captured_err
+            try:
+                exit_code = main([tmp, "--no-ignore-hidden", "--progress"])
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+            self.assertEqual(exit_code, 0)
+            # stdout should only have the report (not progress), stderr may have progress
+
+    def test_json_with_progress_stdout_is_valid_json(self):
+        """--json and --progress together: stdout should still be valid JSON."""
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("same", encoding="utf-8")
+            (root / "b.txt").write_text("same", encoding="utf-8")
+
+            import io
+            import sys
+            captured_out = io.StringIO()
+            captured_err = io.StringIO()
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = captured_out
+            sys.stderr = captured_err
+            try:
+                exit_code = main([tmp, "--json", "--no-ignore-hidden", "--progress"])
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
+
+            self.assertEqual(exit_code, 0)
+            parsed = json.loads(captured_out.getvalue())
+            self.assertIsInstance(parsed, dict)
 
 
 if __name__ == "__main__":

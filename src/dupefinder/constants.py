@@ -4,7 +4,7 @@ Keeping defaults here prevents magic numbers and repeated strings from being
 spread across the codebase.
 """
 
-SCHEMA_VERSION = "1.0"
+SCHEMA_VERSION = "1.1"
 
 DEFAULT_HASH_ALGORITHM = "sha256"
 DEFAULT_CHUNK_SIZE = 1024 * 1024  # 1 MiB

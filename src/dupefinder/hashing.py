@@ -6,14 +6,22 @@ Files are read in chunks to avoid loading large files into memory.
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable, Iterator
+import sqlite3
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 
 from dupefinder.errors import FileHashError, UnsupportedHashAlgorithmError
 from dupefinder.models import FileInfo, ScanIssue, ScanOptions
 
 
-def hash_file(path: str | Path, *, algorithm: str = "sha256", chunk_size: int = 1024 * 1024) -> str:
+def hash_file(
+    path: str | Path,
+    *,
+    algorithm: str = "sha256",
+    chunk_size: int = 1024 * 1024,
+    should_cancel: Callable[[], bool] | None = None,
+    on_bytes_read: Callable[[int], None] | None = None,
+) -> str:
     """Return the hexadecimal hash digest for a file.
 
     Parameters
@@ -24,6 +32,10 @@ def hash_file(path: str | Path, *, algorithm: str = "sha256", chunk_size: int = 
         Any algorithm supported by hashlib on the current Python installation.
     chunk_size:
         Number of bytes to read at a time.
+    should_cancel:
+        Optional callable; if it returns True between chunks, raises _ScanCancelled.
+    on_bytes_read:
+        Optional callable invoked with the number of bytes read after each chunk.
     """
 
     if algorithm not in hashlib.algorithms_available:
@@ -40,7 +52,13 @@ def hash_file(path: str | Path, *, algorithm: str = "sha256", chunk_size: int = 
                 chunk = file_obj.read(chunk_size)
                 if not chunk:
                     break
+                # Check cancellation after reading the chunk but before digesting
+                if should_cancel is not None and should_cancel():
+                    from dupefinder.errors import _ScanCancelled
+                    raise _ScanCancelled()
                 hasher.update(chunk)
+                if on_bytes_read is not None:
+                    on_bytes_read(len(chunk))
     except OSError as exc:
         raise FileHashError(f"Cannot hash file {file_path}: {exc}") from exc
 
@@ -51,6 +69,9 @@ def _resolve_digest(
     file_info: FileInfo,
     options: ScanOptions,
     cache: object | None,
+    *,
+    should_cancel: Callable[[], bool] | None = None,
+    on_bytes_read: Callable[[int], None] | None = None,
 ) -> str:
     """Return the digest for a file, using the cache when available."""
     mtime_ns: int | None = None
@@ -66,10 +87,16 @@ def _resolve_digest(
             )
             if cached is not None:
                 return cached
-        except OSError:
+        except (OSError, sqlite3.Error):
             pass
 
-    digest = hash_file(file_info.path, algorithm=options.algorithm, chunk_size=options.chunk_size)
+    digest = hash_file(
+        file_info.path,
+        algorithm=options.algorithm,
+        chunk_size=options.chunk_size,
+        should_cancel=should_cancel,
+        on_bytes_read=on_bytes_read,
+    )
 
     if cache is not None and mtime_ns is not None:
         try:
@@ -80,7 +107,7 @@ def _resolve_digest(
                 algorithm=options.algorithm,
                 digest=digest,
             )
-        except OSError:
+        except (OSError, sqlite3.Error):
             pass
 
     return digest
@@ -92,16 +119,28 @@ def hash_files(
     issues: list[ScanIssue] | None = None,
     *,
     cache: object | None = None,
+    should_cancel: Callable[[], bool] | None = None,
+    on_bytes_read: Callable[[int], None] | None = None,
 ) -> Iterator[FileInfo]:
-    """Yield FileInfo objects with the digest field filled."""
+    """Yield FileInfo objects with the digest field filled.
+
+    _ScanCancelled is NOT caught here — it propagates to the engine.
+    """
 
     for file_info in files:
         try:
-            digest = _resolve_digest(file_info, options, cache)
+            digest = _resolve_digest(
+                file_info,
+                options,
+                cache,
+                should_cancel=should_cancel,
+                on_bytes_read=on_bytes_read,
+            )
         except FileHashError as exc:
             if options.on_error == "raise":
                 raise
             if issues is not None:
                 issues.append(ScanIssue(path=file_info.path, message=str(exc), phase="hash"))
             continue
+        # _ScanCancelled is NOT caught here — it propagates to the engine
         yield FileInfo(path=file_info.path, size=file_info.size, digest=digest)

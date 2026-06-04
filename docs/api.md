@@ -68,6 +68,7 @@ class DupeFinder:
         self,
         options: ScanOptions | None = None,
         on_event: Callable[[ScanEvent], None] | None = None,
+        on_progress: Callable[[ScanProgress], None] | None = None,
         cache: object | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> None: ...
@@ -84,7 +85,8 @@ class DupeFinder:
 |------|------|-------------|
 | `options` | `ScanOptions \| None` | Scan configuration. Defaults to `ScanOptions()`. |
 | `on_event` | `Callable[[ScanEvent], None] \| None` | Called for every scan event. |
-| `cache` | `object \| None` | Optional hash cache implementing `HashCache`. |
+| `on_progress` | `Callable[[ScanProgress], None] \| None` | Called after each file discovered or hashed with a `ScanProgress` snapshot. Also called once at the end with `phase="done"`. |
+| `cache` | `object \| None` | Optional hash cache implementing `HashCache`. If the cache raises `OSError` or `sqlite3.Error`, it is silently skipped and the file is hashed normally. |
 | `should_cancel` | `Callable[[], bool] \| None` | Called periodically; return `True` to stop the scan early. |
 
 **Usage**
@@ -95,9 +97,12 @@ from dupefinder import DupeFinder, ScanOptions
 finder = DupeFinder(
     options=ScanOptions(min_size=1024),
     on_event=lambda event: print(event.type, event.scanned_files),
+    on_progress=lambda p: print(f"[{p.phase}] {p.scanned_files} files"),
 )
 report = finder.scan("./uploads")
 ```
+
+**Issue events**: the engine emits a `type="issue"` event for every `ScanIssue` added to the issues list during discovery or hashing. These events are emitted immediately after the relevant file/directory is processed, not only at the end of the scan.
 
 ---
 
@@ -123,6 +128,8 @@ class ScanEvent:
     message: str | None = None
     issue: ScanIssue | None = None
     group: DuplicateGroup | None = None
+    from_cache: bool = False   # Reserved for future per-file cache-hit tracking
+    bytes_read: int = 0        # Reserved for future per-file bytes-read tracking
 ```
 
 **Event types**
@@ -133,8 +140,45 @@ class ScanEvent:
 | `file_discovered` | Emitted for each file found. `path` and `scanned_files` are set. |
 | `file_hashed` | Emitted for each file hashed. `hashed_files` and `total_candidates` are set. |
 | `duplicate_group_found` | Emitted for each duplicate group. `group` is set. |
+| `issue` | Emitted for each `ScanIssue` as it is detected. `path`, `message`, and `issue` are set. |
 | `scan_completed` | Emitted when scan finishes normally. `elapsed_seconds` and counts are set. |
 | `scan_cancelled` | Emitted when scan is cancelled. `elapsed_seconds` and counts are set. |
+
+---
+
+## `ScanProgress`
+
+```python
+from dupefinder import ScanProgress
+```
+
+A simplified progress snapshot delivered to the `on_progress` callback of `DupeFinder`. Unlike `ScanEvent`, every field always has a meaningful value regardless of the current phase.
+
+```python
+@dataclass(frozen=True)
+class ScanProgress:
+    root: Path
+    phase: str                         # "discovery", "hashing", "grouping", "done"
+    scanned_files: int = 0
+    hashed_files: int = 0
+    total_candidates: int = 0
+    duplicate_groups: int = 0
+    elapsed_seconds: float | None = None
+    cancelled: bool = False
+```
+
+**Fields**
+
+| Field | Description |
+|-------|-------------|
+| `root` | The root path being scanned. |
+| `phase` | Current scan phase: `"discovery"`, `"hashing"`, or `"done"`. |
+| `scanned_files` | Files discovered so far. |
+| `hashed_files` | Files hashed so far. |
+| `total_candidates` | Files that require hashing (same-size pairs). |
+| `duplicate_groups` | Duplicate groups found (only meaningful in `"done"` phase). |
+| `elapsed_seconds` | Seconds elapsed since scan started. |
+| `cancelled` | `True` in the final `"done"` snapshot when the scan was cancelled early. |
 
 ---
 
@@ -205,7 +249,7 @@ Frozen dataclass. The complete result of a `scan()` call.
 | `issues` | `tuple[ScanIssue, ...]` | Non-fatal problems encountered during the scan. |
 | `cancelled` | `bool` | `True` when the scan was cancelled early (timeout or `should_cancel`). |
 | `elapsed_seconds` | `float \| None` | Wall-clock seconds the scan took. Set when using `DupeFinder`. |
-| `total_bytes_read` | `int \| None` | Reserved for future use. |
+| `total_bytes_read` | `int \| None` | Total bytes read during hashing. `0` when no hashing occurred; positive when files were hashed. Always set by `DupeFinder`. |
 
 **Properties**
 
@@ -323,14 +367,22 @@ The `schema_version` field is always present in the JSON/dict output:
 
 ```json
 {
-  "schema_version": "1.0",
+  "schema_version": "1.1",
   "root": "/some/path",
   "scanned_files": 42,
+  "total_bytes_read": 102400,
   ...
 }
 ```
 
 This field is included in `report_to_dict()`, `report_to_json()`, and `ScanReport.to_dict()`/`ScanReport.to_json()`.
+
+**Schema version history**
+
+| Version | Changes |
+|---------|---------|
+| `"1.0"` | Initial schema (v0.1.0). |
+| `"1.1"` | Added `total_bytes_read` field (v0.3.0). |
 
 ---
 

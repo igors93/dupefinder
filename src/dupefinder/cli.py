@@ -108,14 +108,19 @@ def main(argv: Iterable[str] | None = None) -> int:
         on_error="raise" if args.strict else "skip",
     )
 
-    cache = None
-    if args.cache:
-        from dupefinder.cache import SQLiteHashCache
-        cache = SQLiteHashCache(args.cache)
-
     on_event = _make_progress_handler(args.progress)
 
+    cache = None
     try:
+        if args.cache:
+            import sqlite3
+            from dupefinder.cache import SQLiteHashCache
+            try:
+                cache = SQLiteHashCache(args.cache)
+            except (OSError, sqlite3.Error) as exc:
+                print(f"dupefinder error: cannot open cache {args.cache!r}: {exc}", file=sys.stderr)
+                return 1
+
         finder = DupeFinder(options=options, on_event=on_event, cache=cache)
         report = finder.scan(args.path)
     except Exception as exc:
