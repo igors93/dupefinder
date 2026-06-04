@@ -47,20 +47,57 @@ def hash_file(path: str | Path, *, algorithm: str = "sha256", chunk_size: int = 
     return hasher.hexdigest()
 
 
+def _resolve_digest(
+    file_info: FileInfo,
+    options: ScanOptions,
+    cache: object | None,
+) -> str:
+    """Return the digest for a file, using the cache when available."""
+    mtime_ns: int | None = None
+
+    if cache is not None:
+        try:
+            mtime_ns = file_info.path.stat().st_mtime_ns
+            cached = cache.get(  # type: ignore[union-attr]
+                file_info.path,
+                size=file_info.size,
+                mtime_ns=mtime_ns,
+                algorithm=options.algorithm,
+            )
+            if cached is not None:
+                return cached
+        except OSError:
+            pass
+
+    digest = hash_file(file_info.path, algorithm=options.algorithm, chunk_size=options.chunk_size)
+
+    if cache is not None and mtime_ns is not None:
+        try:
+            cache.set(  # type: ignore[union-attr]
+                file_info.path,
+                size=file_info.size,
+                mtime_ns=mtime_ns,
+                algorithm=options.algorithm,
+                digest=digest,
+            )
+        except OSError:
+            pass
+
+    return digest
+
+
 def hash_files(
     files: Iterable[FileInfo],
     options: ScanOptions,
     issues: list[ScanIssue] | None = None,
+    *,
+    cache: object | None = None,
 ) -> Iterator[FileInfo]:
     """Yield FileInfo objects with the digest field filled."""
 
     for file_info in files:
         try:
-            digest = hash_file(
-                file_info.path,
-                algorithm=options.algorithm,
-                chunk_size=options.chunk_size,
-            )
+            digest = _resolve_digest(file_info, options, cache)
         except FileHashError as exc:
             if options.on_error == "raise":
                 raise

@@ -42,6 +42,12 @@ def validate_options(options: ScanOptions) -> None:
         raise InvalidOptionError("max_size cannot be smaller than min_size.")
     if options.on_error not in {"skip", "raise"}:
         raise InvalidOptionError('on_error must be "skip" or "raise".')
+    if options.max_files is not None and options.max_files <= 0:
+        raise InvalidOptionError("max_files must be a positive integer.")
+    if options.max_depth is not None and options.max_depth < 0:
+        raise InvalidOptionError("max_depth cannot be negative.")
+    if options.timeout_seconds is not None and options.timeout_seconds <= 0:
+        raise InvalidOptionError("timeout_seconds must be positive.")
 
 
 def is_hidden_path(path: Path) -> bool:

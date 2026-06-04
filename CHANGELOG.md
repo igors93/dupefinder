@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `DupeFinder` class — integration-ready scan engine with typed events, cancellation, and optional hash cache.
+- `ScanEvent` frozen dataclass — typed events emitted during each scan phase (`scan_started`, `file_discovered`, `file_hashed`, `duplicate_group_found`, `scan_completed`, `scan_cancelled`).
+- `ScanOptions.max_files` — stop file discovery after N files.
+- `ScanOptions.max_depth` — limit directory recursion depth (`0` = root only).
+- `ScanOptions.timeout_seconds` — automatically cancel scan after N seconds.
+- `ScanReport.cancelled` — `True` when the scan was cancelled early.
+- `ScanReport.elapsed_seconds` — wall-clock scan duration (set when using `DupeFinder`).
+- `ScanReport.to_dict()` and `ScanReport.to_json()` — convenience methods for serialization.
+- `DuplicateGroup.to_dict()` — serialize a single group to a plain dictionary.
+- `ScanIssue.to_dict()` — serialize a single issue to a plain dictionary.
+- `HashCache` protocol — interface for pluggable hash caches.
+- `SQLiteHashCache` — SQLite-backed persistent hash cache; entries validated by file size and mtime.
+- `SCHEMA_VERSION = "1.0"` constant in `dupefinder.constants`.
+- `schema_version` field in all JSON/dict output from `report_to_dict()` and `report_to_json()`.
+- CLI flags: `--max-files`, `--max-depth`, `--timeout`, `--cache`, `--progress`.
+- `--progress` flag prints live discovery/hashing progress to stderr.
+- New examples: `fastapi_like_integration.py`, `ci_fail_on_duplicates.py`, `progress_callback.py`, `sqlite_cache.py`, `cancel_scan.py`.
+
 ## [0.1.0] — 2026-06-04
 
 ### Added

@@ -27,6 +27,8 @@ def build_duplicate_groups(
     files: Iterable[FileInfo],
     options: ScanOptions,
     issues: list[ScanIssue] | None = None,
+    *,
+    cache: object | None = None,
 ) -> tuple[tuple[DuplicateGroup, ...], int]:
     """Return duplicate groups and the number of files that were hashed."""
 
@@ -36,7 +38,7 @@ def build_duplicate_groups(
     hashed_count = 0
     by_hash: dict[tuple[int, str], list[Path]] = defaultdict(list)
 
-    for file_info in hash_files(candidates, options, issues):
+    for file_info in hash_files(candidates, options, issues, cache=cache):
         if file_info.digest is None:
             continue
         hashed_count += 1

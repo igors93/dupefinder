@@ -41,11 +41,11 @@ def _iter_single_file(path: Path, options: ScanOptions, issues: list[ScanIssue] 
 
 
 def _walk_directory(root: Path, options: ScanOptions, issues: list[ScanIssue] | None) -> Iterator[FileInfo]:
-    stack = [root]
+    stack: list[tuple[Path, int]] = [(root, 0)]
     visited_dirs: set[tuple[int, int]] = set()
 
     while stack:
-        current = stack.pop()
+        current, depth = stack.pop()
 
         try:
             stat = current.stat() if options.follow_symlinks else current.lstat()
@@ -64,8 +64,10 @@ def _walk_directory(root: Path, options: ScanOptions, issues: list[ScanIssue] | 
                     path = Path(entry.path)
                     try:
                         if entry.is_dir(follow_symlinks=options.follow_symlinks):
+                            if options.max_depth is not None and depth >= options.max_depth:
+                                continue
                             if not should_ignore_directory(path, options):
-                                stack.append(path)
+                                stack.append((path, depth + 1))
                             continue
 
                         if not entry.is_file(follow_symlinks=options.follow_symlinks):

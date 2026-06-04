@@ -18,6 +18,9 @@
 - **Memory-friendly**: files are hashed in configurable chunks, not loaded fully into RAM.
 - **Fast**: groups by file size before hashing — only candidates are hashed.
 - **Typed**: ships with inline type annotations.
+- **Observable**: typed event system for progress callbacks and integrations.
+- **Cancellable**: abort scans via a callback or timeout.
+- **Cached**: optional SQLite hash cache for repeated scans.
 
 ## Installation
 
@@ -78,6 +81,64 @@ report = scan("./Downloads")
 print(report_to_json(report))
 ```
 
+### DupeFinder with events
+
+```python
+from dupefinder import DupeFinder, ScanOptions
+
+def on_event(event):
+    if event.type == "file_discovered":
+        print(f"\rFound {event.scanned_files} files...", end="", flush=True)
+    elif event.type == "scan_completed":
+        print(f"\nDone in {event.elapsed_seconds:.2f}s")
+
+finder = DupeFinder(
+    options=ScanOptions(min_size=1024),
+    on_event=on_event,
+)
+report = finder.scan("./Downloads")
+```
+
+### Cancellation
+
+```python
+import threading
+from dupefinder import DupeFinder
+
+cancel_flag = threading.Event()
+threading.Timer(5.0, cancel_flag.set).start()  # cancel after 5 seconds
+
+finder = DupeFinder(should_cancel=cancel_flag.is_set)
+report = finder.scan("./Downloads")
+
+if report.cancelled:
+    print(f"Cancelled after {report.elapsed_seconds:.2f}s — partial results")
+```
+
+### SQLite cache
+
+```python
+from dupefinder import DupeFinder
+from dupefinder.cache import SQLiteHashCache
+
+with SQLiteHashCache(".dupefinder-cache.sqlite") as cache:
+    finder = DupeFinder(cache=cache)
+    report = finder.scan("./media")  # second run will be much faster
+```
+
+### Scan limits
+
+```python
+from dupefinder import DupeFinder, ScanOptions
+
+finder = DupeFinder(options=ScanOptions(
+    max_files=1000,       # stop after 1000 files
+    max_depth=3,          # scan at most 3 levels deep
+    timeout_seconds=30.0, # stop after 30 seconds
+))
+report = finder.scan("./data")
+```
+
 ### CLI
 
 ```bash
@@ -121,6 +182,11 @@ Run `dupefinder --help` to see all options.
 | `--ignore-ext` | Skip these extensions, e.g. `.tmp,.log` |
 | `--no-ignore-hidden` | Do not skip hidden dotfiles and dotfolders |
 | `--follow-symlinks` | Follow symbolic links |
+| `--max-files N` | Stop after discovering N files |
+| `--max-depth N` | Maximum directory depth to scan |
+| `--timeout SECONDS` | Stop scan after this many seconds |
+| `--cache PATH` | SQLite cache file for file hashes |
+| `--progress` | Print progress to stderr |
 | `--strict` | Raise errors instead of skipping bad files |
 | `--json` | Print JSON output |
 | `--fail-on-duplicates` | Exit with code `2` when duplicates are found |
@@ -132,11 +198,18 @@ Run `dupefinder --help` to see all options.
 |---|---|
 | `find_duplicates(path, options)` | Return a tuple of `DuplicateGroup` |
 | `scan(path, options)` | Return a full `ScanReport` |
+| `DupeFinder` | Engine with events, cache, and cancellation |
+| `ScanEvent` | Typed event emitted during scanning |
 | `ScanOptions` | Frozen dataclass with all scan settings |
 | `ScanReport` | Result of a scan — groups, counts, issues |
 | `DuplicateGroup` | One group of files with identical content |
 | `FileInfo` | Path and size of a single file |
 | `ScanIssue` | A non-fatal error recorded during a scan |
+| `SQLiteHashCache` | SQLite-backed hash cache for repeated scans |
+
+### JSON schema
+
+All JSON output includes a `schema_version` field (currently `"1.0"`) for forward compatibility.
 
 See [docs/api.md](docs/api.md) for the full reference.
 
@@ -146,8 +219,11 @@ See [docs/api.md](docs/api.md) for the full reference.
 src/dupefinder/
 ├── api.py        public functions: scan, find_duplicates
 ├── cli.py        terminal command
-├── scanner.py    file discovery (os.scandir, loop detection)
-├── hashing.py    chunked file hashing
+├── engine.py     DupeFinder class: events, cancellation, cache
+├── events.py     ScanEvent dataclass
+├── cache.py      HashCache protocol and SQLiteHashCache
+├── scanner.py    file discovery (os.scandir, loop detection, max_depth)
+├── hashing.py    chunked file hashing with optional cache
 ├── grouping.py   group by size then by hash
 ├── filters.py    ignore/include rules
 ├── models.py     frozen dataclasses

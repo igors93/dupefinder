@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from dupefinder.constants import (
     DEFAULT_CHUNK_SIZE,
@@ -36,6 +36,9 @@ class ScanOptions:
     ignored_extensions: frozenset[str] = field(default_factory=frozenset)
     include_extensions: Optional[frozenset[str]] = None
     on_error: Literal["skip", "raise"] = "skip"
+    max_files: int | None = None
+    max_depth: int | None = None
+    timeout_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -67,6 +70,10 @@ class DuplicateGroup:
             return 0
         return self.size * (self.count - 1)
 
+    def to_dict(self) -> dict[str, Any]:
+        from dupefinder.report import group_to_dict
+        return group_to_dict(self)
+
 
 @dataclass(frozen=True)
 class ScanIssue:
@@ -75,6 +82,10 @@ class ScanIssue:
     path: Path
     message: str
     phase: str
+
+    def to_dict(self) -> dict[str, Any]:
+        from dupefinder.report import issue_to_dict
+        return issue_to_dict(self)
 
 
 @dataclass(frozen=True)
@@ -86,6 +97,9 @@ class ScanReport:
     scanned_files: int
     hashed_files: int
     issues: tuple[ScanIssue, ...] = field(default_factory=tuple)
+    cancelled: bool = False
+    elapsed_seconds: float | None = None
+    total_bytes_read: int | None = None
 
     @property
     def total_groups(self) -> int:
@@ -106,3 +120,11 @@ class ScanReport:
     @property
     def has_issues(self) -> bool:
         return bool(self.issues)
+
+    def to_dict(self) -> dict[str, Any]:
+        from dupefinder.report import report_to_dict
+        return report_to_dict(self)
+
+    def to_json(self, *, indent: int | None = 2) -> str:
+        from dupefinder.report import report_to_json
+        return report_to_json(self, indent=indent)

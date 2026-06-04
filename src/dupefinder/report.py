@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
+from dupefinder.constants import SCHEMA_VERSION
 from dupefinder.models import DuplicateGroup, ScanIssue, ScanReport
 
 
@@ -43,12 +44,15 @@ def report_to_dict(report: ScanReport) -> dict[str, Any]:
     """Convert a ScanReport into plain Python objects."""
 
     return {
+        "schema_version": SCHEMA_VERSION,
         "root": str(report.root),
         "scanned_files": report.scanned_files,
         "hashed_files": report.hashed_files,
         "total_groups": report.total_groups,
         "total_duplicate_files": report.total_duplicate_files,
         "total_wasted_space": report.total_wasted_space,
+        "cancelled": report.cancelled,
+        "elapsed_seconds": report.elapsed_seconds,
         "groups": [group_to_dict(group) for group in report.groups],
         "issues": [issue_to_dict(issue) for issue in report.issues],
     }
@@ -71,6 +75,10 @@ def format_report(report: ScanReport) -> str:
         f"Duplicate files: {report.total_duplicate_files}",
         f"Potential wasted space: {bytes_to_human(report.total_wasted_space)}",
     ]
+    if report.elapsed_seconds is not None:
+        lines.append(f"Elapsed: {report.elapsed_seconds:.2f}s")
+    if report.cancelled:
+        lines.append("Status: CANCELLED (partial results)")
 
     if not report.groups:
         lines.append("")
