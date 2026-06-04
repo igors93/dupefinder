@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 from dupefinder.models import DuplicateGroup, ScanIssue, ScanReport
 
@@ -14,16 +14,14 @@ def bytes_to_human(size: int) -> str:
 
     units = ["B", "KB", "MB", "GB", "TB"]
     value = float(size)
-    for unit in units:
-        if value < 1000 or unit == units[-1]:
-            if unit == "B":
-                return f"{int(value)} {unit}"
-            return f"{value:.2f} {unit}"
+    for unit in units[:-1]:
+        if value < 1000:
+            return f"{int(value)} {unit}" if unit == "B" else f"{value:.2f} {unit}"
         value /= 1000
-    return f"{size} B"
+    return f"{value:.2f} {units[-1]}"
 
 
-def group_to_dict(group: DuplicateGroup) -> Dict[str, Any]:
+def group_to_dict(group: DuplicateGroup) -> dict[str, Any]:
     return {
         "digest": group.digest,
         "size": group.size,
@@ -33,7 +31,7 @@ def group_to_dict(group: DuplicateGroup) -> Dict[str, Any]:
     }
 
 
-def issue_to_dict(issue: ScanIssue) -> Dict[str, Any]:
+def issue_to_dict(issue: ScanIssue) -> dict[str, Any]:
     return {
         "path": str(issue.path),
         "message": issue.message,
@@ -41,7 +39,7 @@ def issue_to_dict(issue: ScanIssue) -> Dict[str, Any]:
     }
 
 
-def report_to_dict(report: ScanReport) -> Dict[str, Any]:
+def report_to_dict(report: ScanReport) -> dict[str, Any]:
     """Convert a ScanReport into plain Python objects."""
 
     return {

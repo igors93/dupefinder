@@ -1,25 +1,61 @@
 # Security Policy
 
-## Safe by default
+## Supported versions
 
-`dupefinder` is read-only by design.
+| Version | Supported |
+|---------|-----------|
+| 0.1.x   | Yes       |
 
-The library reads file metadata and file bytes to calculate hashes. It does not delete, move, rename, edit, upload, or transmit user files.
+## Design: safe by default
+
+`dupefinder` is read-only by design. The library reads file metadata and file bytes to calculate hashes.
+
+It does **not**:
+
+- delete, move, rename, or overwrite files;
+- create or write files;
+- connect to the internet or transmit data;
+- execute subprocesses;
+- import third-party packages.
 
 ## Symbolic links
 
-Symbolic links are not followed by default. This reduces the chance of scanning unexpected locations or getting stuck in link loops.
+Symbolic links are **not** followed by default. This prevents the scanner from escaping the intended directory tree or getting stuck in cycles.
 
-Users must explicitly enable symbolic link traversal with `follow_symlinks=True`.
+Users who need symlink traversal must opt in explicitly:
+
+```python
+from dupefinder.models import ScanOptions
+options = ScanOptions(follow_symlinks=True)
+```
+
+When `follow_symlinks=True`, the scanner tracks `(st_dev, st_ino)` pairs to detect and break cycles.
 
 ## Large files
 
-Files are read in chunks. This prevents the library from loading huge files entirely into memory.
+Files are read in configurable chunks (default: 1 MiB). This prevents loading arbitrarily large files into memory.
 
 ## Permission errors
 
-By default, files that cannot be read are skipped and recorded in the report errors. Users can request strict behavior with `on_error="raise"`.
+By default, files and directories that cannot be accessed are **skipped** and recorded as `ScanIssue` entries in the report. No exception is raised.
 
-## Reporting vulnerabilities
+Users who want strict behavior can enable it:
 
-If you find a vulnerability, please open a private security advisory in the repository or contact the maintainer.
+```python
+options = ScanOptions(on_error="raise")
+```
+
+## Reporting a vulnerability
+
+If you discover a security vulnerability, please **do not open a public GitHub issue**.
+
+Instead, open a [private security advisory](https://github.com/igors93/dupefinder/security/advisories/new) in the repository, or contact the maintainer directly at **igor.souza.92@gmail.com**.
+
+Please include:
+
+- A clear description of the vulnerability.
+- Steps to reproduce it.
+- The version of `dupefinder` where you observed it.
+- Any relevant environment details (OS, Python version).
+
+You can expect an acknowledgement within 72 hours.

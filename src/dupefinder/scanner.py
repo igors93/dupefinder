@@ -7,15 +7,15 @@ decide which files are duplicates. This separation keeps maintenance simple.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator, List
 
 from dupefinder.errors import FileAccessError
 from dupefinder.filters import should_ignore_directory, should_ignore_file
 from dupefinder.models import FileInfo, ScanIssue, ScanOptions
 
 
-def iter_files(root: Path, options: ScanOptions, issues: List[ScanIssue] | None = None) -> Iterator[FileInfo]:
+def iter_files(root: Path, options: ScanOptions, issues: list[ScanIssue] | None = None) -> Iterator[FileInfo]:
     """Yield files that pass the configured filters.
 
     Errors are either recorded as ScanIssue objects or raised, depending on
@@ -29,7 +29,7 @@ def iter_files(root: Path, options: ScanOptions, issues: List[ScanIssue] | None 
     yield from _walk_directory(root, options, issues)
 
 
-def _iter_single_file(path: Path, options: ScanOptions, issues: List[ScanIssue] | None) -> Iterator[FileInfo]:
+def _iter_single_file(path: Path, options: ScanOptions, issues: list[ScanIssue] | None) -> Iterator[FileInfo]:
     try:
         stat = path.stat() if options.follow_symlinks else path.lstat()
     except OSError as exc:
@@ -40,7 +40,7 @@ def _iter_single_file(path: Path, options: ScanOptions, issues: List[ScanIssue] 
         yield FileInfo(path=path, size=stat.st_size)
 
 
-def _walk_directory(root: Path, options: ScanOptions, issues: List[ScanIssue] | None) -> Iterator[FileInfo]:
+def _walk_directory(root: Path, options: ScanOptions, issues: list[ScanIssue] | None) -> Iterator[FileInfo]:
     stack = [root]
     visited_dirs: set[tuple[int, int]] = set()
 
@@ -88,7 +88,7 @@ def _handle_scan_error(
     path: Path,
     exc: OSError,
     options: ScanOptions,
-    issues: List[ScanIssue] | None,
+    issues: list[ScanIssue] | None,
 ) -> None:
     message = f"Cannot access path: {exc}"
     if options.on_error == "raise":

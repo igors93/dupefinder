@@ -10,13 +10,14 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE" }
 authors = [
-  { name = "Your Name" }
+  { name = "Igor Souza", email = "igor.souza.92@gmail.com" }
 ]
-keywords = ["duplicates", "files", "hash", "finder", "zero-dependency"]
+keywords = ["duplicates", "files", "hash", "finder", "zero-dependency", "cli"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
@@ -24,16 +25,36 @@ classifiers = [
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Topic :: Utilities",
+  "Topic :: System :: Filesystems",
+  "Typing :: Typed",
 ]
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.0",
+  "pytest-cov>=5.0",
+]
+
 [project.urls]
-Homepage = "https://github.com/your-username/dupefinder"
-Repository = "https://github.com/your-username/dupefinder"
-Issues = "https://github.com/your-username/dupefinder/issues"
+Homepage = "https://github.com/igors93/dupefinder"
+Repository = "https://github.com/igors93/dupefinder"
+Issues = "https://github.com/igors93/dupefinder/issues"
+Changelog = "https://github.com/igors93/dupefinder/blob/main/CHANGELOG.md"
 
 [project.scripts]
 dupefinder = "dupefinder.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["src"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true

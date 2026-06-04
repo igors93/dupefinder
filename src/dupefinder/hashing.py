@@ -6,8 +6,8 @@ Files are read in chunks to avoid loading large files into memory.
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Iterable, Iterator, List
 
 from dupefinder.errors import FileHashError, UnsupportedHashAlgorithmError
 from dupefinder.models import FileInfo, ScanIssue, ScanOptions
@@ -50,7 +50,7 @@ def hash_file(path: str | Path, *, algorithm: str = "sha256", chunk_size: int = 
 def hash_files(
     files: Iterable[FileInfo],
     options: ScanOptions,
-    issues: List[ScanIssue] | None = None,
+    issues: list[ScanIssue] | None = None,
 ) -> Iterator[FileInfo]:
     """Yield FileInfo objects with the digest field filled."""
 

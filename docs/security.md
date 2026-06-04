@@ -1,25 +1,41 @@
-# Security notes
+# Security
 
-`dupefinder` is safe by default because it only reads files.
+## Read-only by design
 
-## No destructive actions
+`dupefinder` reads file metadata and file bytes to compute hashes. It never writes to disk.
 
-The library does not delete files. This is intentional.
+It does **not**:
 
-Duplicate detection and duplicate deletion are different problems. A detector should be safe and predictable.
+- delete, move, rename, truncate, or overwrite any file;
+- create new files or directories;
+- spawn subprocesses;
+- connect to the internet;
+- import third-party packages.
 
-## No network
+## Symbolic links
 
-The library does not connect to the internet.
+Symbolic links are **not** followed by default (`follow_symlinks=False`). This prevents the scanner from:
 
-## No symlink traversal by default
+- leaving the intended directory tree;
+- reading files the user did not intend to expose;
+- entering infinite loops caused by circular symlinks.
 
-Symbolic links can point outside the folder the user thinks they are scanning. For that reason, `follow_symlinks` is disabled by default.
+When `follow_symlinks=True`, the scanner tracks `(st_dev, st_ino)` pairs to detect and break cycles automatically.
 
-## Chunked reads
+## Large files
 
-Large files are read piece by piece. This reduces memory risk.
+Files are read in configurable chunks (default: 1 MiB). The memory footprint is proportional to `chunk_size`, not file size. You can lower `chunk_size` to further limit peak memory usage.
 
 ## Permission errors
 
-The default behavior is to record issues and continue. Strict mode is available for users who prefer exceptions.
+The default behavior (`on_error="skip"`) catches `OSError` during both directory traversal and file hashing, records the problem as a `ScanIssue`, and continues. No file content is exposed.
+
+Strict mode (`on_error="raise"`) raises `FileAccessError` or `FileHashError` immediately instead.
+
+## Input validation
+
+All options are validated before the scan begins via `validate_options()`. Bad values (e.g. unsupported hash algorithms, negative sizes) raise a clear exception rather than silently producing wrong results.
+
+## Reporting vulnerabilities
+
+See [SECURITY.md](../SECURITY.md) for the vulnerability reporting process.

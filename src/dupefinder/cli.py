@@ -5,7 +5,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-from typing import Iterable
+from collections.abc import Iterable
 
 from dupefinder import __version__
 from dupefinder.api import scan

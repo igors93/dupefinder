@@ -7,7 +7,6 @@ the library in their own projects.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Tuple
 
 from dupefinder.grouping import build_duplicate_groups
 from dupefinder.models import DuplicateGroup, ScanIssue, ScanOptions, ScanReport
@@ -38,7 +37,7 @@ def scan(path: str | Path, options: ScanOptions | None = None) -> ScanReport:
     )
 
 
-def find_duplicates(path: str | Path, options: ScanOptions | None = None) -> Tuple[DuplicateGroup, ...]:
+def find_duplicates(path: str | Path, options: ScanOptions | None = None) -> tuple[DuplicateGroup, ...]:
     """Return only the duplicate groups for simple use cases."""
 
     return scan(path, options=options).groups

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Literal
 
 from dupefinder.constants import (
     DEFAULT_CHUNK_SIZE,
@@ -29,13 +29,13 @@ class ScanOptions:
     algorithm: str = DEFAULT_HASH_ALGORITHM
     chunk_size: int = DEFAULT_CHUNK_SIZE
     min_size: int = DEFAULT_MIN_SIZE
-    max_size: Optional[int] = None
+    max_size: int | None = None
     ignore_hidden: bool = True
     follow_symlinks: bool = False
     ignored_dirs: frozenset[str] = field(default_factory=lambda: DEFAULT_IGNORED_DIRS)
     ignored_extensions: frozenset[str] = field(default_factory=frozenset)
     include_extensions: Optional[frozenset[str]] = None
-    on_error: str = "skip"  # "skip" or "raise"
+    on_error: Literal["skip", "raise"] = "skip"
 
 
 @dataclass(frozen=True)
@@ -44,7 +44,7 @@ class FileInfo:
 
     path: Path
     size: int
-    digest: Optional[str] = None
+    digest: str | None = None
 
 
 @dataclass(frozen=True)
@@ -53,7 +53,7 @@ class DuplicateGroup:
 
     digest: str
     size: int
-    files: Tuple[Path, ...]
+    files: tuple[Path, ...]
 
     @property
     def count(self) -> int:
@@ -82,10 +82,10 @@ class ScanReport:
     """Complete result of a duplicate scan."""
 
     root: Path
-    groups: Tuple[DuplicateGroup, ...]
+    groups: tuple[DuplicateGroup, ...]
     scanned_files: int
     hashed_files: int
-    issues: Tuple[ScanIssue, ...] = field(default_factory=tuple)
+    issues: tuple[ScanIssue, ...] = field(default_factory=tuple)
 
     @property
     def total_groups(self) -> int:
