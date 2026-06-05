@@ -5,7 +5,7 @@ from dupefinder.engine import DupeFinder
 from dupefinder.events import ScanEvent, ScanProgress
 from dupefinder.models import DuplicateGroup, FileInfo, ScanIssue, ScanOptions, ScanReport
 
-__version__ = "0.3.0"
+__version__ = "0.3.1"
 
 __all__ = [
     "find_duplicates",

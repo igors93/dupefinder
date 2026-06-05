@@ -1,4 +1,5 @@
 """Tests for model to_dict() and to_json() methods."""
+
 from __future__ import annotations
 
 import json
@@ -27,9 +28,17 @@ class ScanReportDictTests(unittest.TestCase):
         report = self._make_report()
         result = report.to_dict()
         expected_keys = [
-            "schema_version", "root", "scanned_files", "hashed_files",
-            "total_groups", "total_duplicate_files", "total_wasted_space",
-            "cancelled", "elapsed_seconds", "groups", "issues",
+            "schema_version",
+            "root",
+            "scanned_files",
+            "hashed_files",
+            "total_groups",
+            "total_duplicate_files",
+            "total_wasted_space",
+            "cancelled",
+            "elapsed_seconds",
+            "groups",
+            "issues",
         ]
         for key in expected_keys:
             self.assertIn(key, result)

@@ -106,7 +106,6 @@ class HashFileCancellationTests(unittest.TestCase):
 
     def test_should_cancel_not_called_for_empty_file(self):
         """Empty file produces no chunks, so should_cancel is never called."""
-        from dupefinder.errors import _ScanCancelled
 
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "empty.txt"
@@ -152,7 +151,11 @@ class HashFileCancellationTests(unittest.TestCase):
                 FileInfo(path=root / "b.txt", size=50),
             ]
             total = [0]
-            list(hash_files(files, options, on_bytes_read=lambda n: total.__setitem__(0, total[0] + n)))
+            list(
+                hash_files(
+                    files, options, on_bytes_read=lambda n: total.__setitem__(0, total[0] + n)
+                )
+            )
 
             self.assertEqual(total[0], 100)
 

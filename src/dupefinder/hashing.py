@@ -55,6 +55,7 @@ def hash_file(
                 # Check cancellation after reading the chunk but before digesting
                 if should_cancel is not None and should_cancel():
                     from dupefinder.errors import _ScanCancelled
+
                     raise _ScanCancelled()
                 hasher.update(chunk)
                 if on_bytes_read is not None:

@@ -1,4 +1,5 @@
 """Validation helpers and safe defaults."""
+
 from __future__ import annotations
 
 import hashlib
@@ -11,6 +12,11 @@ from dupefinder.models import ScanOptions
 def normalize_path(path: str | Path) -> Path:
     """Return an absolute path without resolving symbolic links."""
     return Path(path).expanduser().absolute()
+
+
+def normalize_internal_path(path: Path) -> Path:
+    """Resolve symlinks for internal comparisons (cache exclusion only)."""
+    return path.expanduser().resolve(strict=False)
 
 
 def validate_scan_path(

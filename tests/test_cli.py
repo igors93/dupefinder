@@ -1,4 +1,5 @@
 """Tests for the CLI."""
+
 from __future__ import annotations
 
 import json
@@ -37,6 +38,7 @@ class CLIJsonTests(unittest.TestCase):
 
             import io
             import sys
+
             captured = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = captured
@@ -54,6 +56,7 @@ class CLIJsonTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             import io
             import sys
+
             captured = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = captured
@@ -96,6 +99,7 @@ class CLINewFlagsTests(unittest.TestCase):
 
             import io
             import sys
+
             captured = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = captured
@@ -118,6 +122,7 @@ class CLINewFlagsTests(unittest.TestCase):
 
             import io
             import sys
+
             captured = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = captured
@@ -133,6 +138,7 @@ class CLINewFlagsTests(unittest.TestCase):
     def test_version_flag(self):
         import io
         import sys
+
         captured = io.StringIO()
         old_stdout = sys.stdout
         sys.stdout = captured
@@ -183,6 +189,7 @@ class CLIJsonAndProgressTests(unittest.TestCase):
 
             import io
             import sys
+
             captured = io.StringIO()
             old_stdout = sys.stdout
             sys.stdout = captured
@@ -203,6 +210,7 @@ class CLIJsonAndProgressTests(unittest.TestCase):
 
             import io
             import sys
+
             captured_out = io.StringIO()
             captured_err = io.StringIO()
             old_stdout = sys.stdout
@@ -227,6 +235,7 @@ class CLIJsonAndProgressTests(unittest.TestCase):
 
             import io
             import sys
+
             captured_out = io.StringIO()
             captured_err = io.StringIO()
             old_stdout = sys.stdout

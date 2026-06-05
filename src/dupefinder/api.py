@@ -1,4 +1,5 @@
 """Public API for dupefinder."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -15,6 +16,8 @@ def scan(path: str | Path, options: ScanOptions | None = None) -> ScanReport:
     return DupeFinder(options=options).scan(path)
 
 
-def find_duplicates(path: str | Path, options: ScanOptions | None = None) -> tuple[DuplicateGroup, ...]:
+def find_duplicates(
+    path: str | Path, options: ScanOptions | None = None
+) -> tuple[DuplicateGroup, ...]:
     """Return only the duplicate groups for simple use cases."""
     return scan(path, options=options).groups

@@ -1,4 +1,5 @@
 """Use the SQLite hash cache to speed up repeated scans."""
+
 import sys
 import time
 from dupefinder import DupeFinder, ScanOptions

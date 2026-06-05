@@ -1,11 +1,10 @@
 """Simulate a FastAPI-like endpoint that scans an upload directory."""
+
 from __future__ import annotations
 
-from dataclasses import asdict
 from pathlib import Path
 
 from dupefinder import DupeFinder, ScanOptions
-from dupefinder.report import report_to_dict
 
 
 def scan_uploads(upload_dir: str, min_size_kb: int = 0) -> dict:
@@ -19,10 +18,7 @@ def scan_uploads(upload_dir: str, min_size_kb: int = 0) -> dict:
         "duplicates_found": report.has_duplicates,
         "total_groups": report.total_groups,
         "wasted_space_bytes": report.total_wasted_space,
-        "groups": [
-            {"files": [str(p) for p in g.files], "size": g.size}
-            for g in report.groups
-        ],
+        "groups": [{"files": [str(p) for p in g.files], "size": g.size} for g in report.groups],
     }
 
 

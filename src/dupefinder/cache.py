@@ -1,4 +1,5 @@
 """Optional hash cache using SQLite from the standard library."""
+
 from __future__ import annotations
 
 import sqlite3

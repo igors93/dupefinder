@@ -1,4 +1,5 @@
 """Integration-ready scan engine."""
+
 from __future__ import annotations
 
 import time
@@ -12,7 +13,7 @@ from dupefinder.events import ProgressPhase, ScanEvent, ScanProgress
 from dupefinder.grouping import candidate_files, group_by_size, groups_from_hash_map
 from dupefinder.hashing import hash_files
 from dupefinder.models import DuplicateGroup, FileInfo, ScanIssue, ScanOptions, ScanReport
-from dupefinder.safety import validate_options, validate_scan_path
+from dupefinder.safety import normalize_internal_path, validate_options, validate_scan_path
 from dupefinder.scanner import iter_files
 
 
@@ -263,4 +264,4 @@ def _cache_excluded_paths(cache: HashCache | None) -> frozenset[Path]:
     if cache is None:
         return frozenset()
     paths: Iterable[Path] = getattr(cache, "excluded_paths", ())
-    return frozenset(Path(path).expanduser().absolute() for path in paths)
+    return frozenset(normalize_internal_path(Path(path)) for path in paths)

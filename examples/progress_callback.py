@@ -1,4 +1,5 @@
 """Show scan progress via the event system."""
+
 import sys
 from dupefinder import DupeFinder, ScanOptions
 
@@ -9,7 +10,8 @@ def on_event(event) -> None:
     elif event.type == "file_hashed":
         print(
             f"\rHashing {event.hashed_files}/{event.total_candidates}...",
-            end="", flush=True,
+            end="",
+            flush=True,
         )
     elif event.type == "scan_completed":
         print(f"\nDone in {event.elapsed_seconds:.2f}s")

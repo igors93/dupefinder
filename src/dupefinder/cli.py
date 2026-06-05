@@ -1,4 +1,5 @@
 """Command line interface for dupefinder."""
+
 from __future__ import annotations
 
 import argparse
@@ -75,7 +76,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--max-depth", type=int, default=None, metavar="N", help="Maximum directory depth to scan."
     )
     parser.add_argument(
-        "--timeout", type=float, default=None, metavar="SECONDS", help="Stop scan after this many seconds."
+        "--timeout",
+        type=float,
+        default=None,
+        metavar="SECONDS",
+        help="Stop scan after this many seconds.",
     )
     parser.add_argument(
         "--include-ext", default=None, help="Only scan these extensions. Example: .jpg,.png"

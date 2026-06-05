@@ -1,4 +1,5 @@
 """File discovery logic."""
+
 from __future__ import annotations
 
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 from dupefinder.errors import FileAccessError
 from dupefinder.filters import should_ignore_directory, should_ignore_file
 from dupefinder.models import FileInfo, ScanIssue, ScanOptions
+from dupefinder.safety import normalize_internal_path
 
 
 def iter_files(
@@ -18,7 +20,7 @@ def iter_files(
     excluded_paths: Collection[Path] = (),
 ) -> Iterator[FileInfo]:
     """Yield files that pass filters and are not owned by internal helpers."""
-    excluded = frozenset(path.expanduser().absolute() for path in excluded_paths)
+    excluded = frozenset(normalize_internal_path(path) for path in excluded_paths)
     if root.is_file():
         yield from _iter_single_file(root, options, issues, excluded)
         return
@@ -91,7 +93,9 @@ def _walk_directory(
 
 
 def _is_excluded(path: Path, excluded_paths: frozenset[Path]) -> bool:
-    return path.expanduser().absolute() in excluded_paths
+    if not excluded_paths:
+        return False
+    return normalize_internal_path(path) in excluded_paths
 
 
 def _handle_scan_error(

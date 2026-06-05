@@ -9,6 +9,8 @@
 
 **dupefinder** is a small, zero-dependency Python library and CLI tool for finding duplicate files using content hashes.
 
+**Requires Python 3.10 or later.** Detects exact duplicates (identical byte content) only.
+
 ## Features
 
 - **Simple**: one function for common use, a full report for advanced use.
@@ -188,6 +190,15 @@ dupefinder . --follow-symlinks
 
 Run `dupefinder --help` to see all options.
 
+### Exit codes
+
+| Code | Meaning |
+|------|---------|
+| `0` | Scan completed normally, no errors |
+| `1` | Scan failed (invalid path, permission error with `--strict`, etc.) |
+| `2` | Scan completed and duplicates were found (only with `--fail-on-duplicates`) |
+| `3` | Scan was cancelled (timeout or signal) |
+
 ## CLI reference
 
 | Flag | Description |
@@ -253,15 +264,17 @@ src/dupefinder/
 └── errors.py     custom exceptions
 ```
 
-## Safety
+## Safety and design constraints
 
 `dupefinder` is intentionally read-only:
 
 - Does **not** delete, move, or rename files.
 - Does **not** connect to the internet.
-- Does **not** follow symbolic links by default.
+- Does **not** follow symbolic links by default. Pass `--follow-symlinks` or `ScanOptions(follow_symlinks=True)` to opt in.
 - Reads files in chunks — no large allocations.
 - Permission errors are recorded and skipped by default.
+- SQLite cache writes occur **only** when the user explicitly passes `--cache PATH` or constructs `SQLiteHashCache`. The cache file is written to the path chosen by the user.
+- Detects **exact duplicates only** — files with identical byte content. Near-duplicates, similar images, or renamed files are not detected.
 
 See [SECURITY.md](SECURITY.md) for more details.
 

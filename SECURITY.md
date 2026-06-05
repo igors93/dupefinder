@@ -4,7 +4,8 @@
 
 | Version | Supported |
 |---------|-----------|
-| 0.1.x   | Yes       |
+| 0.3.x   | Yes       |
+| < 0.3   | No        |
 
 ## Design: safe by default
 
@@ -13,10 +14,26 @@
 It does **not**:
 
 - delete, move, rename, or overwrite files;
-- create or write files;
+- create or write files (except the SQLite cache when explicitly enabled);
 - connect to the internet or transmit data;
 - execute subprocesses;
 - import third-party packages.
+
+## SQLite cache
+
+The optional hash cache writes **only** when the user explicitly enables it:
+
+```python
+# Library
+from dupefinder.cache import SQLiteHashCache
+with SQLiteHashCache("my-cache.sqlite") as cache:
+    ...
+
+# CLI
+dupefinder ./data --cache my-cache.sqlite
+```
+
+The cache file is written only to the path the user selects. No cache file is created or modified without explicit user action.
 
 ## Symbolic links
 
@@ -29,7 +46,13 @@ from dupefinder.models import ScanOptions
 options = ScanOptions(follow_symlinks=True)
 ```
 
+```bash
+dupefinder ./path --follow-symlinks
+```
+
 When `follow_symlinks=True`, the scanner tracks `(st_dev, st_ino)` pairs to detect and break cycles.
+
+Symbolic links used as the scan root are also rejected by default. Pass `follow_symlinks=True` to allow them.
 
 ## Large files
 
@@ -43,6 +66,10 @@ Users who want strict behavior can enable it:
 
 ```python
 options = ScanOptions(on_error="raise")
+```
+
+```bash
+dupefinder ./path --strict
 ```
 
 ## Reporting a vulnerability

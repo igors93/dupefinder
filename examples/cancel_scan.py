@@ -1,7 +1,7 @@
 """Cancel a scan after a timeout or from another thread."""
+
 import sys
 import threading
-import time
 from dupefinder import DupeFinder, ScanOptions
 
 path = sys.argv[1] if len(sys.argv) > 1 else "."
@@ -21,7 +21,9 @@ timer.cancel()
 
 if report.cancelled:
     print(f"Scan was cancelled after {report.elapsed_seconds:.2f}s")
-    print(f"Partial result: {report.scanned_files} files scanned, {report.total_groups} groups found")
+    print(
+        f"Partial result: {report.scanned_files} files scanned, {report.total_groups} groups found"
+    )
 else:
     print(f"Scan completed in {report.elapsed_seconds:.2f}s")
     print(f"Found {report.total_groups} duplicate groups")

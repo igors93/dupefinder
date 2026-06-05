@@ -1,4 +1,5 @@
 """Tests for SQLiteHashCache."""
+
 from __future__ import annotations
 
 import tempfile
@@ -100,9 +101,7 @@ class SQLiteHashCacheTests(unittest.TestCase):
         result_sha256 = self.cache.get(
             self.fake_path, size=100, mtime_ns=123456789, algorithm="sha256"
         )
-        result_md5 = self.cache.get(
-            self.fake_path, size=100, mtime_ns=123456789, algorithm="md5"
-        )
+        result_md5 = self.cache.get(self.fake_path, size=100, mtime_ns=123456789, algorithm="md5")
         self.assertEqual(result_sha256, "sha256digest")
         self.assertEqual(result_md5, "md5digest")
 
@@ -142,9 +141,7 @@ class SQLiteHashCacheTests(unittest.TestCase):
         # After context exit, connection should be closed
         # Verify by opening a new connection and reading
         with SQLiteHashCache(db_path) as cache2:
-            result = cache2.get(
-                self.fake_path, size=50, mtime_ns=1, algorithm="sha256"
-            )
+            result = cache2.get(self.fake_path, size=50, mtime_ns=1, algorithm="sha256")
         self.assertEqual(result, "ctx_digest")
 
     def test_close_can_be_called_directly(self):

@@ -50,8 +50,16 @@ class ReportTests(unittest.TestCase):
             report = scan(root, ScanOptions(ignore_hidden=False))
             data = report_to_dict(report)
 
-            for key in ("root", "scanned_files", "hashed_files", "total_groups",
-                        "total_duplicate_files", "total_wasted_space", "groups", "issues"):
+            for key in (
+                "root",
+                "scanned_files",
+                "hashed_files",
+                "total_groups",
+                "total_duplicate_files",
+                "total_wasted_space",
+                "groups",
+                "issues",
+            ):
                 self.assertIn(key, data)
 
     def test_report_to_json_is_valid_json(self):

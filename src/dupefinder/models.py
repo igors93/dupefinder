@@ -1,4 +1,5 @@
 """Data models used by dupefinder."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -62,6 +63,7 @@ class DuplicateGroup:
 
     def to_dict(self) -> dict[str, Any]:
         from dupefinder.report import group_to_dict
+
         return group_to_dict(self)
 
 
@@ -75,6 +77,7 @@ class ScanIssue:
 
     def to_dict(self) -> dict[str, Any]:
         from dupefinder.report import issue_to_dict
+
         return issue_to_dict(self)
 
 
@@ -113,8 +116,10 @@ class ScanReport:
 
     def to_dict(self) -> dict[str, Any]:
         from dupefinder.report import report_to_dict
+
         return report_to_dict(self)
 
     def to_json(self, *, indent: int | None = 2) -> str:
         from dupefinder.report import report_to_json
+
         return report_to_json(self, indent=indent)

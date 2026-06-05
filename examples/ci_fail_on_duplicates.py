@@ -1,4 +1,5 @@
 """CI script: exit with code 2 if duplicates are found."""
+
 import sys
 from dupefinder import find_duplicates
 

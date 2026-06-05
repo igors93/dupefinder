@@ -1,4 +1,5 @@
 """Tests for the DupeFinder engine."""
+
 from __future__ import annotations
 
 import tempfile
@@ -7,7 +8,6 @@ import unittest
 from pathlib import Path
 
 from dupefinder import DupeFinder, ScanOptions, find_duplicates, scan
-from dupefinder.events import ScanEvent
 from dupefinder.models import ScanReport
 
 
@@ -366,7 +366,7 @@ class DupeFinderIssueEventTests(unittest.TestCase):
                     options=ScanOptions(ignore_hidden=False, on_error="skip"),
                     on_event=events.append,
                 )
-                report = finder.scan(tmp)
+                finder.scan(tmp)
 
             issue_events = [e for e in events if e.type == "issue"]
             self.assertGreater(len(issue_events), 0)
@@ -618,6 +618,7 @@ class DupeFinderBytesReadTests(unittest.TestCase):
 
     def test_total_bytes_read_in_json_output(self):
         import json
+
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             (root / "a.txt").write_text("same", encoding="utf-8")
