@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import time
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from pathlib import Path
 
+from dupefinder.cache import HashCache
 from dupefinder.errors import _ScanCancelled
-from dupefinder.events import ScanEvent, ScanProgress
+from dupefinder.events import ProgressPhase, ScanEvent, ScanProgress
 from dupefinder.grouping import candidate_files, group_by_size, groups_from_hash_map
 from dupefinder.hashing import hash_files
 from dupefinder.models import DuplicateGroup, FileInfo, ScanIssue, ScanOptions, ScanReport
@@ -16,30 +17,14 @@ from dupefinder.scanner import iter_files
 
 
 class DupeFinder:
-    """Integration-ready duplicate file detection engine.
-
-    Encapsulates scan options, an optional event callback, an optional hash
-    cache, and an optional cancellation hook. The scan pipeline emits typed
-    events so host applications can observe progress without polling.
-
-    Usage::
-
-        from dupefinder import DupeFinder, ScanOptions
-
-        finder = DupeFinder(
-            options=ScanOptions(min_size=1024),
-            on_event=lambda event: print(event.type, event.scanned_files),
-            on_progress=lambda p: print(p.phase, p.scanned_files),
-        )
-        report = finder.scan("./uploads")
-    """
+    """Integration-ready duplicate file detection engine."""
 
     def __init__(
         self,
         options: ScanOptions | None = None,
         on_event: Callable[[ScanEvent], None] | None = None,
         on_progress: Callable[[ScanProgress], None] | None = None,
-        cache: object | None = None,
+        cache: HashCache | None = None,
         should_cancel: Callable[[], bool] | None = None,
     ) -> None:
         self._options = options or ScanOptions()
@@ -53,35 +38,36 @@ class DupeFinder:
         return self._options
 
     def scan(self, path: str | Path) -> ScanReport:
-        """Scan a path and return a complete report.
-
-        Emits events throughout the scan. If ``should_cancel`` returns
-        ``True`` or ``timeout_seconds`` is exceeded, returns a partial report
-        with ``cancelled=True``.
-        """
         validate_options(self._options)
-        root = validate_scan_path(path)
+        root = validate_scan_path(
+            path,
+            follow_symlinks=self._options.follow_symlinks,
+        )
         started_at = time.monotonic()
-
         self._emit(ScanEvent(type="scan_started", root=root))
-
         issues: list[ScanIssue] = []
         files: list[FileInfo] = []
-        issues_cursor = 0  # watermark: issues[issues_cursor:] are new
+        issues_cursor = 0
+        excluded_paths = _cache_excluded_paths(self._cache)
 
-        # --- Phase 1: file discovery ---
-        for file_info in iter_files(root, self._options, issues):
+        for file_info in iter_files(
+            root,
+            self._options,
+            issues,
+            excluded_paths=excluded_paths,
+        ):
             files.append(file_info)
-            self._emit(ScanEvent(
-                type="file_discovered",
-                root=root,
-                path=file_info.path,
-                scanned_files=len(files),
-            ))
+            self._emit(
+                ScanEvent(
+                    type="file_discovered",
+                    root=root,
+                    path=file_info.path,
+                    scanned_files=len(files),
+                )
+            )
             self._emit_new_issues(issues, issues_cursor, root)
             issues_cursor = len(issues)
             self._progress(root, "discovery", len(files), 0, 0, 0, started_at)
-
             if self._is_cancelled(started_at):
                 return self._build_report(
                     root, files, (), 0, issues, started_at, cancelled=True, bytes_read=0
@@ -89,22 +75,17 @@ class DupeFinder:
             if self._options.max_files is not None and len(files) >= self._options.max_files:
                 break
 
-        # Emit any remaining discovery issues
         self._emit_new_issues(issues, issues_cursor, root)
         issues_cursor = len(issues)
-
-        # --- Phase 2: group by size ---
         by_size = group_by_size(files)
         candidates = candidate_files(by_size)
-
-        # --- Phase 3: hash candidates ---
         hashed_count = 0
         total_bytes_read = 0
         by_hash: dict[tuple[int, str], list[Path]] = defaultdict(list)
 
-        def on_bytes_read(n: int) -> None:
+        def on_bytes_read(number: int) -> None:
             nonlocal total_bytes_read
-            total_bytes_read += n
+            total_bytes_read += number
 
         try:
             for file_info in hash_files(
@@ -118,44 +99,64 @@ class DupeFinder:
                 assert file_info.digest is not None
                 hashed_count += 1
                 by_hash[(file_info.size, file_info.digest)].append(file_info.path)
-
-                self._emit(ScanEvent(
-                    type="file_hashed",
-                    root=root,
-                    path=file_info.path,
-                    hashed_files=hashed_count,
-                    total_candidates=len(candidates),
-                ))
+                self._emit(
+                    ScanEvent(
+                        type="file_hashed",
+                        root=root,
+                        path=file_info.path,
+                        hashed_files=hashed_count,
+                        total_candidates=len(candidates),
+                    )
+                )
                 self._emit_new_issues(issues, issues_cursor, root)
                 issues_cursor = len(issues)
-                self._progress(root, "hashing", len(files), hashed_count, len(candidates), 0, started_at)
-
+                self._progress(
+                    root,
+                    "hashing",
+                    len(files),
+                    hashed_count,
+                    len(candidates),
+                    0,
+                    started_at,
+                )
                 if self._is_cancelled(started_at):
                     return self._build_report(
-                        root, files, (), hashed_count, issues, started_at, cancelled=True, bytes_read=total_bytes_read
+                        root,
+                        files,
+                        (),
+                        hashed_count,
+                        issues,
+                        started_at,
+                        cancelled=True,
+                        bytes_read=total_bytes_read,
                     )
         except _ScanCancelled:
             self._emit_new_issues(issues, issues_cursor, root)
-            issues_cursor = len(issues)
             return self._build_report(
-                root, files, (), hashed_count, issues, started_at, cancelled=True, bytes_read=total_bytes_read
+                root,
+                files,
+                (),
+                hashed_count,
+                issues,
+                started_at,
+                cancelled=True,
+                bytes_read=total_bytes_read,
             )
 
         self._emit_new_issues(issues, issues_cursor, root)
-        issues_cursor = len(issues)
-
-        # --- Phase 4: build duplicate groups ---
         groups = tuple(groups_from_hash_map(by_hash))
         for group in groups:
             self._emit(ScanEvent(type="duplicate_group_found", root=root, group=group))
-
         return self._build_report(
-            root, files, groups, hashed_count, issues, started_at, cancelled=False, bytes_read=total_bytes_read
+            root,
+            files,
+            groups,
+            hashed_count,
+            issues,
+            started_at,
+            cancelled=False,
+            bytes_read=total_bytes_read,
         )
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
 
     def _is_cancelled(self, started_at: float) -> bool:
         if self._should_cancel is not None and self._should_cancel():
@@ -171,20 +172,21 @@ class DupeFinder:
         cursor: int,
         root: Path,
     ) -> None:
-        """Emit issue events for any issues added since cursor."""
         for issue in issues[cursor:]:
-            self._emit(ScanEvent(
-                type="issue",
-                root=root,
-                path=issue.path,
-                issue=issue,
-                message=issue.message,
-            ))
+            self._emit(
+                ScanEvent(
+                    type="issue",
+                    root=root,
+                    path=issue.path,
+                    issue=issue,
+                    message=issue.message,
+                )
+            )
 
     def _progress(
         self,
         root: Path,
-        phase: str,
+        phase: ProgressPhase,
         scanned_files: int,
         hashed_files: int,
         total_candidates: int,
@@ -193,15 +195,17 @@ class DupeFinder:
     ) -> None:
         if self._on_progress is None:
             return
-        self._on_progress(ScanProgress(
-            root=root,
-            phase=phase,
-            scanned_files=scanned_files,
-            hashed_files=hashed_files,
-            total_candidates=total_candidates,
-            duplicate_groups=duplicate_groups,
-            elapsed_seconds=time.monotonic() - started_at,
-        ))
+        self._on_progress(
+            ScanProgress(
+                root=root,
+                phase=phase,
+                scanned_files=scanned_files,
+                hashed_files=hashed_files,
+                total_candidates=total_candidates,
+                duplicate_groups=duplicate_groups,
+                elapsed_seconds=time.monotonic() - started_at,
+            )
+        )
 
     def _build_report(
         self,
@@ -227,25 +231,36 @@ class DupeFinder:
             total_bytes_read=bytes_read,
         )
         if self._on_progress is not None:
-            self._on_progress(ScanProgress(
+            self._on_progress(
+                ScanProgress(
+                    root=root,
+                    phase="done",
+                    scanned_files=report.scanned_files,
+                    hashed_files=report.hashed_files,
+                    duplicate_groups=report.total_groups,
+                    elapsed_seconds=elapsed,
+                    cancelled=cancelled,
+                )
+            )
+        self._emit(
+            ScanEvent(
+                type="scan_cancelled" if cancelled else "scan_completed",
                 root=root,
-                phase="done",
                 scanned_files=report.scanned_files,
                 hashed_files=report.hashed_files,
                 duplicate_groups=report.total_groups,
                 elapsed_seconds=elapsed,
-                cancelled=cancelled,
-            ))
-        self._emit(ScanEvent(
-            type="scan_cancelled" if cancelled else "scan_completed",
-            root=root,
-            scanned_files=report.scanned_files,
-            hashed_files=report.hashed_files,
-            duplicate_groups=report.total_groups,
-            elapsed_seconds=elapsed,
-        ))
+            )
+        )
         return report
 
     def _emit(self, event: ScanEvent) -> None:
         if self._on_event is not None:
             self._on_event(event)
+
+
+def _cache_excluded_paths(cache: HashCache | None) -> frozenset[Path]:
+    if cache is None:
+        return frozenset()
+    paths: Iterable[Path] = getattr(cache, "excluded_paths", ())
+    return frozenset(Path(path).expanduser().absolute() for path in paths)

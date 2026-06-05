@@ -1,9 +1,4 @@
-"""Data models used by dupefinder.
-
-These classes are intentionally small and explicit. They make the public API
-predictable and avoid returning loose dictionaries with unclear keys.
-"""
-
+"""Data models used by dupefinder."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -20,11 +15,7 @@ from dupefinder.constants import (
 
 @dataclass(frozen=True)
 class ScanOptions:
-    """Options used to control a duplicate scan.
-
-    Defaults are conservative: the scan is read-only, hidden paths are ignored,
-    and symbolic links are not followed.
-    """
+    """Options used to control a duplicate scan."""
 
     algorithm: str = DEFAULT_HASH_ALGORITHM
     chunk_size: int = DEFAULT_CHUNK_SIZE
@@ -34,7 +25,7 @@ class ScanOptions:
     follow_symlinks: bool = False
     ignored_dirs: frozenset[str] = field(default_factory=lambda: DEFAULT_IGNORED_DIRS)
     ignored_extensions: frozenset[str] = field(default_factory=frozenset)
-    include_extensions: Optional[frozenset[str]] = None
+    include_extensions: frozenset[str] | None = None
     on_error: Literal["skip", "raise"] = "skip"
     max_files: int | None = None
     max_depth: int | None = None
@@ -65,7 +56,6 @@ class DuplicateGroup:
     @property
     def wasted_space(self) -> int:
         """Bytes that could be saved if only one file from this group remained."""
-
         if self.count <= 1:
             return 0
         return self.size * (self.count - 1)

@@ -3,10 +3,12 @@ from __future__ import annotations
 
 import argparse
 import re
+import sqlite3
 import sys
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 
 from dupefinder import __version__
+from dupefinder.cache import SQLiteHashCache
 from dupefinder.constants import DEFAULT_CHUNK_SIZE, DEFAULT_HASH_ALGORITHM, SIZE_UNITS
 from dupefinder.engine import DupeFinder
 from dupefinder.events import ScanEvent
@@ -43,27 +45,72 @@ def build_parser() -> argparse.ArgumentParser:
         description="Find duplicate files safely using file hashes.",
     )
     parser.add_argument("path", help="File or directory to scan.")
-    parser.add_argument("--algorithm", default=DEFAULT_HASH_ALGORITHM, help="Hash algorithm. Default: sha256.")
-    parser.add_argument("--chunk-size", type=parse_size, default=DEFAULT_CHUNK_SIZE, help="Read chunk size. Example: 1MB.")
-    parser.add_argument("--min-size", type=parse_size, default=1, help="Ignore files smaller than this. Example: 10KB.")
-    parser.add_argument("--max-size", type=parse_size, default=None, help="Ignore files larger than this. Example: 5GB.")
-    parser.add_argument("--max-files", type=int, default=None, metavar="N", help="Stop after discovering N files.")
-    parser.add_argument("--max-depth", type=int, default=None, metavar="N", help="Maximum directory depth to scan.")
-    parser.add_argument("--timeout", type=float, default=None, metavar="SECONDS", help="Stop scan after this many seconds.")
-    parser.add_argument("--include-ext", default=None, help="Only scan these extensions. Example: .jpg,.png")
-    parser.add_argument("--ignore-ext", default=None, help="Ignore these extensions. Example: .tmp,.log")
-    parser.add_argument("--no-ignore-hidden", action="store_true", help="Do not ignore hidden dotfiles and dotfolders.")
-    parser.add_argument("--follow-symlinks", action="store_true", help="Follow symbolic links. Disabled by default.")
-    parser.add_argument("--strict", action="store_true", help="Raise errors instead of recording and skipping them.")
-    parser.add_argument("--cache", default=None, metavar="PATH", help="SQLite cache file for file hashes.")
-    parser.add_argument("--progress", action="store_true", help="Print progress to stderr during scan.")
+    parser.add_argument(
+        "--algorithm",
+        default=DEFAULT_HASH_ALGORITHM,
+        help="Hash algorithm. Default: sha256.",
+    )
+    parser.add_argument(
+        "--chunk-size",
+        type=parse_size,
+        default=DEFAULT_CHUNK_SIZE,
+        help="Read chunk size. Example: 1MB.",
+    )
+    parser.add_argument(
+        "--min-size",
+        type=parse_size,
+        default=1,
+        help="Ignore files smaller than this. Example: 10KB.",
+    )
+    parser.add_argument(
+        "--max-size",
+        type=parse_size,
+        default=None,
+        help="Ignore files larger than this. Example: 5GB.",
+    )
+    parser.add_argument(
+        "--max-files", type=int, default=None, metavar="N", help="Stop after discovering N files."
+    )
+    parser.add_argument(
+        "--max-depth", type=int, default=None, metavar="N", help="Maximum directory depth to scan."
+    )
+    parser.add_argument(
+        "--timeout", type=float, default=None, metavar="SECONDS", help="Stop scan after this many seconds."
+    )
+    parser.add_argument(
+        "--include-ext", default=None, help="Only scan these extensions. Example: .jpg,.png"
+    )
+    parser.add_argument(
+        "--ignore-ext", default=None, help="Ignore these extensions. Example: .tmp,.log"
+    )
+    parser.add_argument(
+        "--no-ignore-hidden",
+        action="store_true",
+        help="Do not ignore hidden dotfiles and dotfolders.",
+    )
+    parser.add_argument(
+        "--follow-symlinks", action="store_true", help="Follow symbolic links. Disabled by default."
+    )
+    parser.add_argument(
+        "--strict", action="store_true", help="Raise errors instead of recording and skipping them."
+    )
+    parser.add_argument(
+        "--cache", default=None, metavar="PATH", help="SQLite cache file for file hashes."
+    )
+    parser.add_argument(
+        "--progress", action="store_true", help="Print progress to stderr during scan."
+    )
     parser.add_argument("--json", action="store_true", help="Print JSON output.")
-    parser.add_argument("--fail-on-duplicates", action="store_true", help="Exit with code 2 when duplicates are found.")
+    parser.add_argument(
+        "--fail-on-duplicates",
+        action="store_true",
+        help="Exit with code 2 when duplicates are found.",
+    )
     parser.add_argument("--version", action="version", version=f"dupefinder {__version__}")
     return parser
 
 
-def _make_progress_handler(show: bool) -> object:
+def _make_progress_handler(show: bool) -> Callable[[ScanEvent], None] | None:
     """Return an event callback that prints progress to stderr, or None."""
     if not show:
         return None
@@ -84,7 +131,7 @@ def _make_progress_handler(show: bool) -> object:
                 flush=True,
             )
         elif event.type in ("scan_completed", "scan_cancelled"):
-            print(file=sys.stderr)  # newline after progress
+            print(file=sys.stderr)
 
     return on_event
 
@@ -110,11 +157,9 @@ def main(argv: Iterable[str] | None = None) -> int:
 
     on_event = _make_progress_handler(args.progress)
 
-    cache = None
+    cache: SQLiteHashCache | None = None
     try:
         if args.cache:
-            import sqlite3
-            from dupefinder.cache import SQLiteHashCache
             try:
                 cache = SQLiteHashCache(args.cache)
             except (OSError, sqlite3.Error) as exc:
@@ -135,6 +180,8 @@ def main(argv: Iterable[str] | None = None) -> int:
     else:
         print(format_report(report))
 
+    if report.cancelled:
+        return 3
     if args.fail_on_duplicates and report.has_duplicates:
         return 2
     return 0

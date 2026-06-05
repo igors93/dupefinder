@@ -11,26 +11,23 @@ class HashCache(Protocol):
     """Interface for hash caches."""
 
     def get(self, path: Path, *, size: int, mtime_ns: int, algorithm: str) -> str | None: ...
-    def set(self, path: Path, *, size: int, mtime_ns: int, algorithm: str, digest: str) -> None: ...
+    def set(
+        self,
+        path: Path,
+        *,
+        size: int,
+        mtime_ns: int,
+        algorithm: str,
+        digest: str,
+    ) -> None: ...
     def close(self) -> None: ...
 
 
 class SQLiteHashCache:
-    """Hash cache backed by a SQLite database.
-
-    The cache key is (path, algorithm). An entry is only valid when both
-    file size and mtime_ns still match; otherwise it is silently ignored and
-    the file is rehashed.
-
-    Usage::
-
-        with SQLiteHashCache(".dupefinder-cache.sqlite") as cache:
-            finder = DupeFinder(cache=cache)
-            report = finder.scan("./media")
-    """
+    """Hash cache backed by a SQLite database."""
 
     def __init__(self, db_path: str | Path) -> None:
-        self._db_path = Path(db_path)
+        self._db_path = Path(db_path).expanduser().absolute()
         self._conn: sqlite3.Connection = sqlite3.connect(self._db_path)
         self._conn.execute(
             """
@@ -46,6 +43,19 @@ class SQLiteHashCache:
         )
         self._conn.commit()
 
+    @property
+    def excluded_paths(self) -> frozenset[Path]:
+        """Files owned by SQLite that must not be included in a scan."""
+        base = self._db_path
+        return frozenset(
+            {
+                base,
+                Path(f"{base}-wal"),
+                Path(f"{base}-shm"),
+                Path(f"{base}-journal"),
+            }
+        )
+
     def get(self, path: Path, *, size: int, mtime_ns: int, algorithm: str) -> str | None:
         row = self._conn.execute(
             "SELECT digest, size, mtime_ns FROM hash_cache WHERE path = ? AND algorithm = ?",
@@ -58,7 +68,15 @@ class SQLiteHashCache:
             return None
         return str(cached_digest)
 
-    def set(self, path: Path, *, size: int, mtime_ns: int, algorithm: str, digest: str) -> None:
+    def set(
+        self,
+        path: Path,
+        *,
+        size: int,
+        mtime_ns: int,
+        algorithm: str,
+        digest: str,
+    ) -> None:
         self._conn.execute(
             """
             INSERT INTO hash_cache (path, algorithm, size, mtime_ns, digest)
