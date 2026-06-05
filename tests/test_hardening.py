@@ -252,6 +252,48 @@ class CacheIsolationTests(unittest.TestCase):
             self.assertEqual(report.scanned_files, 2)
             self.assertEqual(report.total_groups, 1)
 
+    def test_circular_symlink_inside_root_does_not_crash_with_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("same", encoding="utf-8")
+            (root / "b.txt").write_text("same", encoding="utf-8")
+            loop = root / "loop"
+            try:
+                loop.symlink_to(loop)
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"Symlinks unavailable: {exc}")
+            cache_path = root / "cache.sqlite"
+
+            with SQLiteHashCache(cache_path) as cache:
+                report = DupeFinder(
+                    options=ScanOptions(ignore_hidden=False),
+                    cache=cache,
+                ).scan(root)
+
+            self.assertFalse(report.cancelled)
+            self.assertEqual(report.scanned_files, 2)
+
+    def test_broken_symlink_inside_root_does_not_crash_with_cache(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "a.txt").write_text("same", encoding="utf-8")
+            (root / "b.txt").write_text("same", encoding="utf-8")
+            broken = root / "broken"
+            try:
+                broken.symlink_to(root / "nonexistent_target")
+            except (OSError, NotImplementedError) as exc:
+                self.skipTest(f"Symlinks unavailable: {exc}")
+            cache_path = root / "cache.sqlite"
+
+            with SQLiteHashCache(cache_path) as cache:
+                report = DupeFinder(
+                    options=ScanOptions(ignore_hidden=False),
+                    cache=cache,
+                ).scan(root)
+
+            self.assertFalse(report.cancelled)
+            self.assertEqual(report.scanned_files, 2)
+
 
 class CancellationExitCodeTests(unittest.TestCase):
     def _make_report(self, **kwargs: object) -> ScanReport:

@@ -9,24 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 No unreleased changes.
 
-## [0.3.1] — 2026-06-05
+## [0.4.0] — 2026-06-05
 
 ### Fixed
 
-- SQLite cache files are now correctly excluded when the scan root is accessed through a symbolic link. Path comparison now uses `resolve(strict=False)` on both sides so symlinked and real paths map to the same canonical key.
-- `-wal`, `-shm`, and `-journal` SQLite auxiliary files are excluded alongside the main cache database.
+- Root symbolic links are rejected when symbolic link traversal is disabled (`follow_symlinks=False`), including directory and file symlinks used as the scan root.
+- SQLite cache database and all auxiliary files (`-wal`, `-shm`, `-journal`) are excluded from scans.
+- Cache exclusion works correctly when the scan root is accessed through a symbolic link, using `resolve(strict=False)` on both sides of the comparison.
+- Internal path comparison during cache exclusion no longer raises `OSError` or `RuntimeError` on symlink loops or broken symlinks.
 - PyPI publishing workflow (`publish.yml`) rewritten as valid YAML — the previous file contained Markdown code fences that made it unparseable by GitHub Actions.
+- Public type annotations in `ScanOptions`, `ScanEvent`, and `ScanProgress` now resolve correctly on all supported Python versions via `get_type_hints()`.
 
 ### Changed
 
+- Cancelled CLI scans return exit status `3`. Exit code `3` takes priority over `--fail-on-duplicates`.
 - Minimum supported Python version raised from 3.9 to 3.10. The codebase uses `X | Y` union syntax broadly; requiring 3.10 makes this consistent and allows `get_type_hints()` to resolve annotations correctly at runtime.
-- `ProgressPhase` values corrected to `"discovery"`, `"hashing"`, and `"done"` — the `"grouping"` phase mentioned in the previous changelog was never emitted.
+- `ProgressPhase` values restricted to the phases actually emitted: `"discovery"`, `"hashing"`, and `"done"`.
+
+### Removed
+
+- `ScanEvent.from_cache` and `ScanEvent.bytes_read` fields removed. These fields were added in 0.3.0 but were never populated — they always remained at their default values (`False` and `0`). Removing them eliminates misleading API surface.
 
 ### Tooling
 
-- CI restructured into three jobs: `quality` (Ruff lint + format check + Pyright), `tests` (matrix across Ubuntu/Windows/macOS and Python 3.10–3.13), and `package` (build, Twine check, `py.typed` verification, wheel smoke test).
+- CI restructured into three jobs: `quality` (Ruff lint + format check + Pyright on Ubuntu), `tests` (matrix across Ubuntu, Windows, and macOS with Python 3.10–3.13), and `package` (build, Twine check, `py.typed` verification, wheel smoke test).
+- Publishing workflow (`publish.yml`) now runs Ruff, Pyright, and full quality checks before building, so manual releases cannot skip linting.
 - `pyyaml` added to development dependencies to enable workflow YAML validation in tests.
-- New regression tests: symlink policy (directory and file roots, broken symlinks), cache exclusion through symlinked roots, WAL/SHM/journal exclusion, typing contract, cancellation exit codes, version consistency, `py.typed` marker, workflow YAML validation.
+- Regression tests added: symlink policy, cache exclusion (including symlinked roots, symlink loops, broken symlinks), typing contracts, cancellation exit codes, version consistency, `py.typed` marker, workflow YAML validation.
 
 ## [0.3.0] — 2026-06-04
 
@@ -34,36 +43,32 @@ No unreleased changes.
 
 - `DupeFinder` class — integration-ready scan engine with typed events, cancellation, and optional hash cache.
 - `ScanEvent` frozen dataclass — typed events emitted during each scan phase (`scan_started`, `file_discovered`, `file_hashed`, `duplicate_group_found`, `issue`, `scan_completed`, `scan_cancelled`).
-- `ScanProgress` frozen dataclass — simplified progress snapshots delivered to the new `on_progress` callback. Fields: `root`, `phase` (`"discovery"`, `"hashing"`, `"done"`), `scanned_files`, `hashed_files`, `total_candidates`, `duplicate_groups`, `elapsed_seconds`, `cancelled`.
+- `ScanEvent.from_cache` and `ScanEvent.bytes_read` fields (reserved; removed in 0.4.0).
+- `ScanProgress` frozen dataclass — simplified progress snapshots delivered to the new `on_progress` callback. Fields: `root`, `phase`, `scanned_files`, `hashed_files`, `total_candidates`, `duplicate_groups`, `elapsed_seconds`, `cancelled`.
 - `DupeFinder.on_progress` parameter — optional callback that receives a `ScanProgress` snapshot after each file discovered or hashed, and once more at the end with `phase="done"`.
 - `ScanOptions.max_files` — stop file discovery after N files.
 - `ScanOptions.max_depth` — limit directory recursion depth (`0` = root only).
 - `ScanOptions.timeout_seconds` — automatically cancel scan after N seconds.
 - `ScanReport.cancelled` — `True` when the scan was cancelled early.
 - `ScanReport.elapsed_seconds` — wall-clock scan duration.
-- `ScanReport.total_bytes_read` — total bytes read during hashing (always populated; zero when no files were hashed).
-- `ScanReport.to_dict()` and `ScanReport.to_json()` — convenience methods for serialization.
-- `DuplicateGroup.to_dict()` — serialize a single group to a plain dictionary.
-- `ScanIssue.to_dict()` — serialize a single issue to a plain dictionary.
+- `ScanReport.total_bytes_read` — total bytes read during hashing.
+- `ScanReport.to_dict()` and `ScanReport.to_json()` — convenience serialization methods.
+- `DuplicateGroup.to_dict()` and `ScanIssue.to_dict()` — serialize to plain dictionary.
 - `HashCache` protocol — interface for pluggable hash caches.
 - `SQLiteHashCache` — SQLite-backed persistent hash cache; entries validated by file size and mtime.
-- `ScanEvent.from_cache` and `ScanEvent.bytes_read` fields.
-- `grouping.candidate_files()` — public helper that filters files sharing a size with at least one other file.
-- `grouping.groups_from_hash_map()` — public helper that builds and sorts `DuplicateGroup` objects from a `(size, digest) → paths` mapping.
-- `_ScanCancelled` internal exception in `errors.py` — raised between chunks when `should_cancel` returns `True`; caught at the engine boundary.
-- `hash_file()` accepts `should_cancel` and `on_bytes_read` keyword-only callbacks.
-- `hash_files()` accepts `should_cancel` and `on_bytes_read` and forwards them to `hash_file()`.
-- `SCHEMA_VERSION = "1.1"` constant; `schema_version` and `total_bytes_read` fields in all JSON/dict output.
+- `grouping.candidate_files()` and `grouping.groups_from_hash_map()` — public helpers.
+- `_ScanCancelled` internal exception in `errors.py`.
+- `hash_file()` and `hash_files()` accept `should_cancel` and `on_bytes_read` callbacks.
+- `SCHEMA_VERSION = "1.1"` constant; `schema_version` and `total_bytes_read` in all JSON/dict output.
 - CLI flags: `--max-files`, `--max-depth`, `--timeout`, `--cache`, `--progress`.
 - `--progress` flag prints live discovery/hashing progress to stderr.
-- Cancelled CLI scans exit with status code `3`.
 
 ### Fixed
 
 - Engine now emits `type="issue"` events for all issues collected during discovery and hashing.
-- Cache error handling now catches `sqlite3.Error` in addition to `OSError`.
+- Cache error handling catches `sqlite3.Error` in addition to `OSError`.
 - CLI cache creation moved inside the `try` block so errors on cache open are caught and reported cleanly with exit code 1.
-- Engine no longer duplicates the size-grouping and hash-grouping logic from `grouping.py`.
+- Engine no longer duplicates size-grouping and hash-grouping logic from `grouping.py`.
 
 ### Changed
 
@@ -89,7 +94,7 @@ No unreleased changes.
 - Unit tests for all modules using only the Python standard library.
 - Zero runtime dependencies — standard library only.
 
-[Unreleased]: https://github.com/igors93/dupefinder/compare/v0.3.1...HEAD
-[0.3.1]: https://github.com/igors93/dupefinder/compare/v0.3.0...v0.3.1
+[Unreleased]: https://github.com/igors93/dupefinder/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/igors93/dupefinder/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/igors93/dupefinder/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/igors93/dupefinder/releases/tag/v0.1.0

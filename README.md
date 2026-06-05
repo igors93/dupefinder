@@ -194,10 +194,15 @@ Run `dupefinder --help` to see all options.
 
 | Code | Meaning |
 |------|---------|
-| `0` | Scan completed normally, no errors |
-| `1` | Scan failed (invalid path, permission error with `--strict`, etc.) |
-| `2` | Scan completed and duplicates were found (only with `--fail-on-duplicates`) |
-| `3` | Scan was cancelled (timeout or signal) |
+| `0` | Scan completed. Non-fatal issues may still be present in the report. |
+| `1` | Scan failed because of an invalid option, invalid path, cache error, or strict-mode error. |
+| `2` | Scan completed and duplicates were found while `--fail-on-duplicates` was enabled. |
+| `3` | Scan was cancelled or stopped by the configured timeout. |
+
+Notes:
+- `--strict` turns otherwise non-fatal file access errors into exit code `1`.
+- JSON output can contain an `issues` list even when the exit code is `0`.
+- Exit code `3` takes priority over `--fail-on-duplicates`.
 
 ## CLI reference
 
@@ -236,7 +241,7 @@ Run `dupefinder --help` to see all options.
 | `DuplicateGroup` | One group of files with identical content |
 | `FileInfo` | Path and size of a single file |
 | `ScanIssue` | A non-fatal error recorded during a scan |
-| `SQLiteHashCache` | SQLite-backed hash cache for repeated scans |
+| `SQLiteHashCache` | SQLite-backed hash cache — import from `dupefinder.cache` |
 
 ### JSON schema
 

@@ -131,7 +131,7 @@ class ScanIssueDictTests(unittest.TestCase):
     def test_to_dict_values_are_correct(self):
         issue = self._make_issue()
         result = issue.to_dict()
-        self.assertEqual(result["path"], "/some/file.txt")
+        self.assertEqual(result["path"], str(Path("/some/file.txt")))
         self.assertEqual(result["message"], "Permission denied")
         self.assertEqual(result["phase"], "scan")
 

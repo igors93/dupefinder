@@ -35,8 +35,6 @@ class ScanEvent:
     message: str | None = None
     issue: ScanIssue | None = None
     group: DuplicateGroup | None = None
-    from_cache: bool = False
-    bytes_read: int = 0
 
 
 @dataclass(frozen=True)

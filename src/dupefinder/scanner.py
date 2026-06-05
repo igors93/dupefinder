@@ -95,7 +95,10 @@ def _walk_directory(
 def _is_excluded(path: Path, excluded_paths: frozenset[Path]) -> bool:
     if not excluded_paths:
         return False
-    return normalize_internal_path(path) in excluded_paths
+    try:
+        return normalize_internal_path(path) in excluded_paths
+    except (OSError, RuntimeError):
+        return False
 
 
 def _handle_scan_error(

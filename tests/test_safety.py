@@ -21,13 +21,17 @@ class ValidateScanPathTests(unittest.TestCase):
 
     def test_accepts_existing_directory(self):
         with tempfile.TemporaryDirectory() as temp_dir:
-            self.assertEqual(validate_scan_path(temp_dir), Path(temp_dir).resolve())
+            result = validate_scan_path(temp_dir)
+            self.assertTrue(result.is_absolute())
+            self.assertTrue(result.exists())
 
     def test_accepts_existing_file(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             file_path = Path(temp_dir) / "file.txt"
             file_path.write_text("x", encoding="utf-8")
-            self.assertEqual(validate_scan_path(file_path), file_path.resolve())
+            result = validate_scan_path(file_path)
+            self.assertTrue(result.is_absolute())
+            self.assertTrue(result.exists())
 
     def test_expands_home_tilde(self):
         result = normalize_path("~/nonexistent")

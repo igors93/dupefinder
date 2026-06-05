@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Git tag to publish, for example v0.3.1"
+        description: "Git tag to publish, for example v0.4.0"
         required: true
         type: string
 
@@ -18,7 +18,7 @@ env:
 
 jobs:
   build:
-    name: Test and build package
+    name: Quality checks, tests, and build
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,6 +37,15 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
+
+      - name: Ruff lint
+        run: ruff check .
+
+      - name: Ruff format check
+        run: ruff format --check .
+
+      - name: Pyright
+        run: pyright
 
       - name: Run tests
         run: pytest
@@ -67,6 +76,9 @@ jobs:
 
       - name: Check package metadata
         run: python -m twine check dist/*
+
+      - name: Verify py.typed is in wheel
+        run: python -m zipfile -l dist/*.whl | grep py.typed
 
       - name: Upload package distributions
         uses: actions/upload-artifact@v4
